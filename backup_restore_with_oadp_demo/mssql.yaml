@@ -1,0 +1,175 @@
+---
+apiVersion: v1
+kind: List
+items:
+  - kind: Namespace
+    apiVersion: v1
+    metadata:
+      name: mssql-persistent-app
+      labels:
+        app: mssql
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: mssql-secret
+      namespace: mssql-persistent-app
+      labels:
+        app: mssql
+    stringData:
+      mssql-password: P@ssw0rd1!
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: mssql-persistent-app-sa
+      namespace: mssql-persistent-app
+      labels:
+        component: mssql-persistent-app
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: mssql-pvc
+      namespace: mssql-persistent-app
+      labels:
+        app: mssql
+    spec:
+      storageClassName: ocs-external-storagecluster-ceph-rbd
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+  - kind: Deployment
+    apiVersion: apps/v1
+    metadata:
+      labels:
+        app: mssql
+        e2e-app: "true"
+      name: mssql-deployment
+      namespace: mssql-persistent-app
+    spec:
+      replicas: 1
+      revisionHistoryLimit: 10
+      selector:
+        matchLabels:
+          name: mssql
+      strategy:
+        activeDeadlineSeconds: 21600
+        recreateParams:
+          timeoutSeconds: 600
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            app: mssql
+            e2e-app: "true"
+            name: mssql
+        spec:
+          containers:
+          - env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: mssql-password
+                  name: mssql-secret
+            image: quay.io/ocpmigrate/mssql-server:latest
+            imagePullPolicy: Always
+            name: mssql
+            ports:
+            - containerPort: 1433
+              protocol: TCP
+            resources:
+              limits:
+                cpu: 500m
+                memory: 3Gi
+              requests:
+                cpu: 500m
+                memory: 3Gi
+            securityContext:
+              privileged: true
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /var/opt/mssql/data
+              name: mssql-vol
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          serviceAccount: mssql-persistent-app-sa
+          serviceAccountName: mssql-persistent-app-sa
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - name: mssql-vol
+            persistentVolumeClaim:
+              claimName: mssql-pvc
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: mssql-service
+      namespace: mssql-persistent-app
+    spec:
+      selector:
+        app: mssql
+      ports:
+        - protocol: TCP
+          port: 1433
+          targetPort: 1433
+      type: ClusterIP
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: mssql-app-deployment
+      namespace: mssql-persistent-app
+      labels:
+        e2e-app: "true"
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: mssql-app
+      template:
+        metadata:
+          labels:
+            e2e-app: "true"
+            app: mssql-app
+        spec:
+          terminationGracePeriodSeconds: 10
+          serviceAccountName: mssql-persistent-app-sa
+          containers:
+          - name: mssql-app
+            image: quay.io/ocpmigrate/mssql-sample-app:microsoft
+            imagePullPolicy: Always
+            ports:
+            - containerPort: 5000
+            securityContext:
+              privileged: true
+            env:
+            - name: ConnString
+              value: "Server=mssql-service.mssql-persistent-app.svc.cluster.local;Database=ProductCatalog;User ID=WebLogin; password=SQLPass1234!"
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: mssql-app-service
+      namespace: mssql-persistent-app
+    spec:
+      selector:
+        app: mssql-app
+      ports:
+        - name: "tcp"
+          protocol: TCP
+          port: 5000
+          targetPort: 5000
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: mssql-app-route
+      namespace: mssql-persistent-app
+    spec:
+      path: "/"
+      to:
+        kind: Service
+        name: mssql-app-service

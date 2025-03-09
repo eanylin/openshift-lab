@@ -1,0 +1,19 @@
+---
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: backup-win2019-external-ceph
+  labels:
+    velero.io/storage-location: default
+  namespace: openshift-adp
+spec:
+  hooks: {}
+  orLabelSelectors:
+  - matchLabels:
+      app: win2k19-external-ceph
+  - matchLabels:
+      vm.kubevirt.io/name: win2k19-external-ceph
+  includedNamespaces:
+  - kubevirt
+  storageLocation: openshift-dpa-1
+  ttl: 720h0m0s

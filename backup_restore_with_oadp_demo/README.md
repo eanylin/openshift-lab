@@ -83,10 +83,56 @@ spec:
 
 - The same configurations will be configured on both the primary and secondary clusters. The object storage bucket will be visible to both the clusters in this case and the content that is backed up from the primary cluster to the bucket can then be used to restore the stateful workload in the secondary cluster.
 
-- The stateful application that we will be using in this demo will be mssql. Its associated YAML definitions can be found in the `mssql.yaml` in this repo.
+
+## Deploy Sample Stateful Application
+
+- The stateful application that we will be using in this demo will be mssql. Its associated YAML definitions can be found in the `mssql.yaml` in this repo. Note that the `storageClassName` will need to be updated accordingly. In our case, we are using `ocs-external-storagecluster-ceph-rbd`.
 
 - We will deploy the stateful application in the primary cluster:
 
 ```
 oc apply -f mssql.yaml
 ```
+
+
+## Backup Application in Primary Cluster
+
+- Create `Backup` resource file in the Primary Cluster. The backup will be retained for 30 days (720 hours).
+
+```
+---
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: mssql-backup
+  namespace: openshift-adp
+spec:
+  csiSnapshotTimeout: 10m0s
+  defaultVolumesToFsBackup: false
+  itemOperationTimeout: 4h0m0s
+  snapshotMoveData: true
+  includedNamespaces:
+  - mssql-persistent-app
+  storageLocation: openshift-dpa-1
+  ttl: 720h0m0s
+```
+
+## Restore Application in Secondary Cluster
+
+- Create `Restore` resource file in the Secondary Cluster.
+
+```
+---
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: mssql-restore
+  namespace: openshift-adp
+spec:
+  backupName: mssql-backup
+```
+
+## Conclusion
+
+- OADP, together with external object storage bucket and software defined storage solutions such as external CEPH storage, can be used to backup a stateful application in primary cluster and restored in a secondary cluster
+- OADP is also able to backup OpenShift cluster wide attributes such as **Security Context Constraints** (SCC) and hence is useful for Enterprises who have been running stateless applications in OpenShift for years and looking to adopt stateful workload, as it gives them the confidence that they can restore the configurations that have been applied to an existing cluster to another fresh new cluster, in the event of a disaster event. This is especially crucial for Enterprises which are running mainly COTS applications where they might not have full visbility or knowledge of all the parameters and configurations that the ISV vendors have configured over time. While GitOps is the way around this, it is not always practised in all parts of a large organization.

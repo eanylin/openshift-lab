@@ -2,7 +2,7 @@
 
 This demo looks at how we can connect 2 OpenShift clusters to an external CEPH storage cluster and make use of OADP (OpenShift API for Data Protection) to backup stateful workloads in the primary cluster and restore it in the secondary cluster.
 
-## Set up the Environment
+## Setting up the Environment
 
 - We will need to first install the OADP Operator using the OpenShift Console
 
@@ -79,4 +79,14 @@ spec:
       featureFlags:
         - EnableCSI
       resourceTimeout: 10m
+```
+
+- The same configurations will be configured on both the primary and secondary clusters. The object storage bucket will be visible to both the clusters in this case and the content that is backed up from the primary cluster to the bucket can then be used to restore the stateful workload in the secondary cluster.
+
+- The stateful application that we will be using in this demo will be mssql. Its associated YAML definitions can be found in the `mssql.yaml` in this repo.
+
+- We will deploy the stateful application in the primary cluster:
+
+```
+oc apply -f mssql.yaml
 ```

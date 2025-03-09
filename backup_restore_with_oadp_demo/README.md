@@ -6,15 +6,18 @@ This demo looks at how we can connect 2 OpenShift clusters to an external CEPH s
 
 We will need to first install the OADP Operator using the OpenShift Console
 
-  1. In the OpenShift Container Platform web console, click Operators → OperatorHub.
-  2. Use the Filter by keyword field to find the OADP Operator.
-  3. Select the OADP Operator (select the one from Red Hat source, instead of the Community source) and click Install.
-  4. Accept default values and click Install to install the Operator in the openshift-adp project.
-  5. Click Operators → Installed Operators to verify the installation.
+    1. In the OpenShift Container Platform web console, click Operators → OperatorHub.
+    2. Use the Filter by keyword field to find the OADP Operator.
+    3. Select the OADP Operator (select the one from Red Hat source, instead of the Community source) and click Install.
+    4. Accept default values and click Install to install the Operator in the openshift-adp project.
+    5. Click Operators → Installed Operators to verify the installation.
 
 Once the OADP Operator is installed, we will proceed to create the required object storage in the CEPH cluster
+![image](./images/create-bucket.jpg)
+![image](./images/check-bucket.jpg)
 
 The credentials, in this case, will be that of the `dashboard` user, which can be retrieved under the user tab
+![image](./images/check-s3-user.jpg)
 
 With these information, we will be able to create the secret in the OpenShift cluster that will be used to authenticate with the object storage.
 

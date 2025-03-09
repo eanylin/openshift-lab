@@ -14,15 +14,17 @@ This demo looks at how we can connect 2 OpenShift clusters to an external CEPH s
 
 
 - Once the OADP Operator is installed, we will proceed to create the required object storage in the CEPH cluster
+
 ![image](./images/create-bucket.jpg)
 ![image](./images/check-bucket.jpg)
 
-The credentials, in this case, will be that of the `dashboard` user, which can be retrieved under the user tab
+
+- The credentials, in this case, will be that of the `dashboard` user, which can be retrieved under the user tab
+
 ![image](./images/check-s3-user.jpg)
 
-With these information, we will be able to create the secret in the OpenShift cluster that will be used to authenticate with the object storage.
 
-In this case, we will create a YAML file, i.e. `credentials-velero` that looks like this
+- With these information, we will be able to create the secret in the OpenShift cluster that will be used to authenticate with the object storage. In this case, we will create a YAML file, i.e. `credentials-velero` that looks like this:
 
 ```
 [default]
@@ -30,13 +32,13 @@ aws_access_key_id=changemeAccessKey
 aws_secret_access_key=changemeSecretAccessKey
 ```
 
-And we will create the secret using the following command
+- And we will create the secret using the following command
 
 ```
 oc create secret generic cloud-credentials -n openshift-adp --from-file cloud=credentials-velero
 ```
 
-And create the `DataProtectionApplication` file
+- And create the `DataProtectionApplication` file
 
 ```
 ---

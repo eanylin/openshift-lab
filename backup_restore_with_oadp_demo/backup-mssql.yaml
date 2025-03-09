@@ -1,0 +1,15 @@
+---
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: mssql-backup
+  namespace: openshift-adp
+spec:
+  csiSnapshotTimeout: 10m0s
+  defaultVolumesToFsBackup: false
+  itemOperationTimeout: 4h0m0s
+  snapshotMoveData: true
+  includedNamespaces:
+  - mssql-persistent-app
+  storageLocation: openshift-dpa-1
+  ttl: 720h0m0s

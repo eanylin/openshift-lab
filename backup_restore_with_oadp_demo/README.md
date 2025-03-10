@@ -3,6 +3,9 @@
 This demo looks at how we can connect 2 OpenShift clusters to an external CEPH storage cluster and make use of OADP (OpenShift API for Data Protection) to backup stateful workloads in the primary cluster and restore it in the secondary cluster.
 
 ## Setting up the Environment
+- A high level architecture of the deployment is as follows:
+
+![image](./images/high-level-architecture.jpg)
 
 - We will need to first install the OADP Operator using the OpenShift Console
 

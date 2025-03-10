@@ -5,7 +5,7 @@ This demo looks at how we can connect 2 OpenShift clusters to an external CEPH s
 ## Setting up the Environment
 - A high level architecture of the deployment is as follows:
 
-![image](./images/high-level-architecture.jpg)
+  ![image](./images/high-level-architecture.jpg)
 
 - We will need to first install the OADP Operator using the OpenShift Console
 

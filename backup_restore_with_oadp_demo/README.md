@@ -1,8 +1,10 @@
 ## Background
 
-This demo looks at how we can connect 2 OpenShift clusters to an external CEPH storage cluster and make use of OADP (OpenShift API for Data Protection) to backup stateful workloads in the primary cluster and restore it in the secondary cluster.
+This demo looks at how we can connect 2 OpenShift clusters to an external Ceph storage cluster and make use of OADP (OpenShift API for Data Protection) to backup stateful workloads in the primary cluster and restore it in the secondary cluster.
 
 The demo video on MS-SQL container workload backup and restore from Primary to Secondary Cluster can be found at the following [link](https://youtu.be/6GA1DRNq604)
+
+The demo video on Windows 2019 Server VM (OpenShift Virtualization based on Kubevirt) backup and restore from Primary to Secondary Cluster can be found at the following [link](https://youtu.be/Drhj99-EpRc)
 
 ## Setting up the Environment
 - A high level architecture of the deployment is as follows:

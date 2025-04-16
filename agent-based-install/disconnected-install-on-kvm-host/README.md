@@ -242,7 +242,7 @@ $ oc patch OperatorHub cluster --type json -p '[{"op": "add", "path": "/spec/dis
 
 ## Update `/etc/hosts` if needed
 ```
-192.168.100.20  api.hub.eanylin.com
+192.168.100.21  api.hub.eanylin.com
 192.168.100.21  oauth-openshift.apps.hub.eanylin.com
 192.168.100.21  console-openshift-console.apps.hub.eanylin.com
 192.168.100.21  grafana-openshift-monitoring.apps.hub.eanylin.com

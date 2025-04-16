@@ -1,0 +1,36 @@
+---
+apiVersion: v1
+baseDomain: eanylin.com 
+compute:
+- name: worker
+  replicas: 0
+controlPlane:
+  name: master
+  replicas: 1
+metadata:
+  name: hub
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 192.168.100.0/24
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  none: {}
+fips: false
+pullSecret: '{"auths":{"jumphost.eanylin.com:8443":{"auth": "aW5pdDpwYXNzd29yZA=="}}}'
+sshKey: 'xxx'
+additionalTrustBundle: |
+    -----BEGIN CERTIFICATE-----
+    yyy
+    -----END CERTIFICATE-----
+ImageDigestSources:
+- mirrors:
+  - jumphost.eanylin.com:8443/ocp4/openshift/release
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+- mirrors:
+  - jumphost.eanylin.com:8443/ocp4/openshift/release-images
+  source: quay.io/openshift-release-dev/ocp-release

@@ -81,9 +81,9 @@ zone "." IN {
 	file "named.ca";
 };
 
-zone "julin.com" {
+zone "eanylin.com" {
     type master;
-    file "julin.com.zone";
+    file "eanylin.com.zone";
     allow-query { any; };
     allow-transfer { none; };
 };
@@ -102,16 +102,16 @@ include "/etc/named.root.key";
 - Create the zone files in the `/var/named/` directory
 
 ```
-$ cat julin.com.zone
+$ cat eanylin.com.zone
 $TTL 8h
-@ IN SOA helper.julin.com. root.julin.com. (
+@ IN SOA helper.eanylin.com. root.eanylin.com. (
                           2022070601 ; serial number
                           1d         ; refresh period
                           3h         ; retry period
                           3d         ; expire time
                           3h )       ; minimum TTL
 
-                      IN NS   helper.julin.com.
+                      IN NS   helper.eanylin.com.
 
 helper                IN A    192.168.100.50
 api.hub               IN A    192.168.100.20
@@ -124,20 +124,20 @@ master-2.hub          IN A    192.168.100.24
 ```
 $ cat 100.168.192.in-addr.arpa.zone
 TTL 8h
-@ IN SOA helper.julin.com. root.julin.com. (
+@ IN SOA helper.eanylin.com. root.eanylin.com. (
                           2022070601 ; serial number
                           1d         ; refresh period
                           3h         ; retry period
                           3d         ; expire time
                           3h )       ; minimum TTL
 
-                        IN NS   helper.julin.com.
+                        IN NS   helper.eanylin.com.
 
-50                      IN PTR  helper.julin.com.
-20                      IN PTR  api.hub.julin.com.
-22                      IN PTR  master-0.hub.julin.com.
-23                      IN PTR  master-1.hub.julin.com.
-24                      IN PTR  master-2.hub.julin.com.
+50                      IN PTR  helper.eanylin.com.
+20                      IN PTR  api.hub.eanylin.com.
+22                      IN PTR  master-0.hub.eanylin.com.
+23                      IN PTR  master-1.hub.eanylin.com.
+24                      IN PTR  master-2.hub.eanylin.com.
 $
 ```
 
@@ -146,7 +146,7 @@ $
 ```
 $ named-checkconf
 $ named-checkzone 100.168.192.in-addr.arpa 100.168.192.in-addr.arpa.zone
-$ named-checkzone julin.com julin.com.zone
+$ named-checkzone eanylin.com eanylin.com.zone
 ```
 
 - Add firewalld rules for DNS and start/enable `named` service
@@ -168,13 +168,13 @@ $ systemctl status named
 - Install the mirror registry for Red Hat OpenShift
 
 ```
-$ ./mirror-registry install --quayHostname helper.julin.com --quayRoot /root/quay
+$ ./mirror-registry install --quayHostname helper.eanylin.com --quayRoot /root/quay
 ```
 
 - Use the user name and password generated during installation to log into the registry by running the following command:
 
 ```
-$ podman login -u init -p <password> https://helper.julin.com:8443 --tls-verify=false
+$ podman login -u init -p <password> https://helper.eanylin.com:8443 --tls-verify=false
 ```
  
 - Take care of the self-signed certs of the Helper Node
@@ -205,7 +205,7 @@ mkdir -p $XDG_RUNTIME_DIR/containers
 - Perform Mirroring
 
 ```
-$ oc mirror --config=./image-set-configuration.yaml docker://helper.julin.com:8443/ocp4
+$ oc mirror --config=./image-set-configuration-4.18.7.yaml docker://helper.eanylin.com:8443/ocp4
 ```
 
 
@@ -242,11 +242,11 @@ $ oc patch OperatorHub cluster --type json -p '[{"op": "add", "path": "/spec/dis
 
 ## Update `/etc/hosts` if needed
 ```
-192.168.100.20  api.hub.julin.com
-192.168.100.21  oauth-openshift.apps.hub.julin.com
-192.168.100.21  console-openshift-console.apps.hub.julin.com
-192.168.100.21  grafana-openshift-monitoring.apps.hub.julin.com
-192.168.100.21  thanos-querier-openshift-monitoring.apps.hub.julin.com
-192.168.100.21  prometheus-k8s-openshift-monitoring.apps.hub.julin.com
-192.168.100.21  alertmanager-main-openshift-monitoring.apps.hub.julin.com
+192.168.100.20  api.hub.eanylin.com
+192.168.100.21  oauth-openshift.apps.hub.eanylin.com
+192.168.100.21  console-openshift-console.apps.hub.eanylin.com
+192.168.100.21  grafana-openshift-monitoring.apps.hub.eanylin.com
+192.168.100.21  thanos-querier-openshift-monitoring.apps.hub.eanylin.com
+192.168.100.21  prometheus-k8s-openshift-monitoring.apps.hub.eanylin.com
+192.168.100.21  alertmanager-main-openshift-monitoring.apps.hub.eanylin.com
 ```

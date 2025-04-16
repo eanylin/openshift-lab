@@ -1,0 +1,72 @@
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v1alpha2
+mirror:
+  platform:
+    channels:
+    - name: stable-4.18
+      minVersion: 4.18.7
+      maxVersion: 4.18.7
+      type: ocp
+    graph: true
+  additionalImages:
+    - name: registry.redhat.io/ubi8/ubi:latest
+    - name: registry.redhat.io/ubi9/ubi@sha256:20f695d2a91352d4eaa25107535126727b5945bff38ed36a3e59590f495046f0
+  helm: {}
+  operators:
+  - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.18
+    packages:
+# ocp operators
+    - name: kubernetes-nmstate-operator
+      channels:
+      - name: stable
+    - name: node-maintenance-operator
+      channels:
+      - name: stable
+    - name: node-healthcheck-operator
+      channels:
+      - name: stable
+    - name: redhat-oadp-operator
+      channels:
+      - name: stable-1.4
+    - name: web-terminal
+      channels:
+      - name: fast
+    - name: cincinnati-operator
+      channels:
+      - name: v1
+    - name: cluster-kube-descheduler-operator
+      channels:
+      - name: stable
+# ocpv operators
+    - name: kubevirt-hyperconverged
+      channels:
+      - name: stable
+    - name: kubernetes-nmstate-operator
+      channels:
+      - name: stable
+    - name: lvms-operator
+      channels:
+      - name: stable-4.18
+    - name: node-maintenance-operator
+      channels:
+      - name: stable
+    - name: node-healthcheck-operator
+      channels:
+      - name: stable
+# odf operators
+    - name: odf-operator
+      channels:
+      - name: stable-4.18
+    - name: local-storage-operator
+      channels:
+      - name: stable
+    - name: lvms-operator
+      channels:
+      - name: stable-4.18
+# acm operators
+    - name: advanced-cluster-management
+      channels:
+      - name: release-2.13
+    - name: multicluster-engine
+      channels:
+      - name: stable-2.8

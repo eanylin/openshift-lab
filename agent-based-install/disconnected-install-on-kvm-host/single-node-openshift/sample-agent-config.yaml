@@ -1,0 +1,33 @@
+---
+apiVersion: v1alpha1
+kind: AgentConfig
+metadata:
+  name: hub
+rendezvousIP: 192.168.100.22
+hosts:
+  - hostname: master-0
+    interfaces:
+      - name: enp1s0
+        macAddress: 52:54:00:9a:34:77
+    networkConfig:
+      interfaces:
+        - name: enp1s0
+          type: ethernet
+          state: up
+          mac-address: 52:54:00:9a:34:77
+          ipv4:
+            enabled: true
+            address:
+              - ip: 192.168.100.22
+                prefix-length: 24
+            dhcp: false
+      dns-resolver:
+        config:
+          server:
+            - 192.168.100.100
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 192.168.100.1
+            next-hop-interface: enp1s0
+            table-id: 254

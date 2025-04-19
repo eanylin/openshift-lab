@@ -210,7 +210,7 @@ $ cat ./pull-secret | jq . > pull-secret.json
 mkdir -p $XDG_RUNTIME_DIR/containers
 ```
 
-- Append the `auth.json` file with the required credentials
+- Create and/or append the `auth.json` file with the required credentials
 - Perform Mirroring
 ```
 $ oc mirror --config=./image-set-configuration-4.18.7.yaml docker://bastion.eanylin.com:8443/ocp4
@@ -218,7 +218,7 @@ $ oc mirror --config=./image-set-configuration-4.18.7.yaml docker://bastion.eany
 
 
 ## Install OpenShift Cluster
-- Follow instructions in the OpenShift 4.18 [documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html-single/installing_an_on-premise_cluster_with_the_agent-based_installer/index#prerequisites_installing-with-agent-based-installer)
+- Follow instructions in the OpenShift 4.18 [documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html-single/installing_an_on-premise_cluster_with_the_agent-based_installer/index#prerequisites_installing-with-agent-based-installer) to deploy the cluster
 - Create `install-config.yaml` and `agent-config.yaml` files
 - Generate ISO and use it to boot the servers
 - Check installation progress after that
@@ -231,19 +231,19 @@ $ ./openshift-install --dir /root/hub agent wait-for install-complete --log-leve
 
 
 ## Post Installation - Create CatalogSource, ImageContentSourcePolicy
+- Disable the default OperatorHub catalog sources
+```
+$ oc patch OperatorHub cluster --type json -p '[{"op": "add", "path": "/spec/disableAllDefaultSources", "value": true}]'
+```
+
 - Create a CatalogSource in the cluster
 ```
 $ oc create -f oc-mirror-workspace/results-xxxxxxxxxxx/catalogSource-cs-redhat-marketplace-index.yaml
 ``` 
 
-- Create an ImageContentSourcePolicy in the cluster :
+- Create an ImageContentSourcePolicy in the cluster
 ```
 $ oc create -f oc-mirror-workspace/results-xxxxxxxxxxx/imageContentSourcePolicy.yaml
-```
-
-- Disable the default OperatorHub catalog sources
-```
-$ oc patch OperatorHub cluster --type json -p '[{"op": "add", "path": "/spec/disableAllDefaultSources", "value": true}]'
 ```
 
 

@@ -1,0 +1,35 @@
+---
+apiVersion: agent-install.openshift.io/v1beta1
+kind: InfraEnv
+metadata:
+  name: cluster2
+  namespace: cluster2
+  labels:
+    networkType: static
+spec:
+  additionalNTPSources:
+  - 192.168.100.100
+  clusterRef:
+    name: 'cluster2'
+    namespace: 'cluster2'
+  agentLabels:
+    'agentBareMetal-generated-infraenv-ai-flow': 'cluster2-cluster2'
+  pullSecretRef:
+    name: pull-secret
+  kernelArguments:
+  - operation: append
+    value: rd.break=initqueue
+  nmStateConfigLabelSelector:
+    matchExpressions:	
+    - key: network
+      operator: In
+      values:
+      - master-0-cluster2
+      - master-1-cluster2
+      - master-2-cluster2
+  cpuArchitecture: x86_64
+  sshAuthorizedKey: 'ssh-rsa AAABBBCCCDDD= root@bastion.julin.com'
+  additionalTrustBundle: |
+    -----BEGIN CERTIFICATE-----
+    XXXXX
+    -----END CERTIFICATE-----

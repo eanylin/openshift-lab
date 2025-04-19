@@ -8,11 +8,13 @@
 - Compact Cluster on KVM Host Setup:
 ![Compact Cluster Setup](images/compact-cluster-architecture.png)
 
-## Initial Setup with DNS Configurations
+## Setting up the Bastion VM
 
-- Install latest RHEL 9. Make sure the RHEL VM has all the 500G assigned to `/` and not split with the `/home/` as is the case with click through installation.
-- Install the following packages
-
+- Bastion VM will have 2 vNICs, connected to 2 different networks on the KVM host
+    - One of the networks will need to have internet access (via NAT) and the one will be used as host-only network (fully disconnected from the Internet)
+- Proceed to the latest RHEL 9 on the VM
+    - Make sure the VM has at least 500GB of free space and make sure to assign all the available space to `/`
+- Run the following commands to install the required packages in the bastion VM
 ```
 $ subscription-manager register
 $ dnf update -y
@@ -23,16 +25,14 @@ $ systemctl enable podman
 
 - Go to https://console.redhat.com/openshift/downloads and download all the required packages, i.e. `mirror-registry-amd64.tar.gz`, `oc-mirror.rhel9.tar.gz`, `openshift-client-linux.tar.gz`, `openshift-install-linux.tar.gz`
 
-- Setup DNS on the host (if need be)
-- Follow documentation, i.e. https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services#proc_configuring-bind-as-a-caching-dns-server_assembly_setting-up-and-configuring-a-bind-dns-server
-
+- Follow the following ![documentation](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services#proc_configuring-bind-as-a-caching-dns-server_assembly_setting-up-and-configuring-a-bind-dns-server) to setup DNS on the host, if need be
+- Install the following packages
 ```
 dnf install bind bind-utils -y
 ```
 
 - Update `/etc/named.conf`
-- A sample will look like the following for server with IP address `192.168.100.100`
-
+- A sample will look like the following for a server with IP address `192.168.100.100` on the disconnected network and `192.168.122.100` on the network with internet connectivity
 ```
 //
 // named.conf
@@ -108,9 +108,9 @@ zone "100.168.192.in-addr.arpa" {
 include "/etc/named.rfc1912.zones";
 include "/etc/named.root.key";
 ```
-
+\
+&nbsp;
 - Create the zone files in the `/var/named/` directory
-
 ```
 $ cat eanylin.com.zone
 $TTL 8h
@@ -150,45 +150,43 @@ TTL 8h
 24                      IN PTR  master-2.hub.eanylin.com.
 $
 ```
-
+\
+&nbsp;
 - Verify the syntax of the /etc/named.conf file and check the configuration of the zones
-
 ```
 $ named-checkconf
 $ named-checkzone 100.168.192.in-addr.arpa 100.168.192.in-addr.arpa.zone
 $ named-checkzone eanylin.com eanylin.com.zone
 ```
-
+\
+&nbsp;
 - Add firewalld rules for DNS and start/enable `named` service
-
 ```
 $ firewall-cmd --permanent --add-service=dns
 $ firewall-cmd --reload
 $ systemctl enable --now named
 $ systemctl status named
 ```
-
+\
+&nbsp;
 - Check that DNS resolves properly
-- Follow instructions in https://www.howtoforge.com/crony-ntp-server-centos-8/ and https://www.redhat.com/en/blog/chrony-time-services-linux to configure Chrony NTP services as well
+- Follow instructions in the ![documentation](https://www.redhat.com/en/blog/chrony-time-services-linux) to configure Chrony NTP services, if need be
 
 
-## Set up mirror registry and perform mirroring
+## Set up Mirror Registry and perform the required mirroring on the Bastion VM
 
-- Download the mirror-registry.tar.gz package for the latest version of the mirror registry for Red Hat OpenShift found at https://console.redhat.com/openshift/downloads#tool-mirror-registry
+- Go to the following ![link](https://console.redhat.com/openshift/downloads#tool-mirror-registry) and download the latest version of the mirror registry 
 - Install the mirror registry for Red Hat OpenShift
-
 ```
 $ ./mirror-registry install --quayHostname helper.eanylin.com --quayRoot /root/quay
 ```
 
 - Use the user name and password generated during installation to log into the registry by running the following command:
-
 ```
 $ podman login -u init -p <password> https://helper.eanylin.com:8443 --tls-verify=false
 ```
  
 - Take care of the self-signed certs of the Helper Node
-
 ```
 $ cd /root/quay/
 $ ls
@@ -199,28 +197,25 @@ $ update-ca-trust extract
 
 - Download Pull Secrets from https://console.redhat.com/openshift/install/pull-secret
 - Make a copy of the pull secret in JSON format by running the following command:
-
 ```
 $ cat ./pull-secret | jq . > pull-secret.json
 ```
 
 - If the $XDG_RUNTIME_DIR/containers directory does not exist, create one by entering the following command:
 - Append the `auth.json` file with the required credentials
-
 ```
 mkdir -p $XDG_RUNTIME_DIR/containers
 ```
 
 
 - Perform Mirroring
-
 ```
 $ oc mirror --config=./image-set-configuration-4.18.7.yaml docker://helper.eanylin.com:8443/ocp4
 ```
 
 
-## Install cluster
-- Follow instructions in https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html-single/installing_an_on-premise_cluster_with_the_agent-based_installer/index#prerequisites_installing-with-agent-based-installer
+## Install OpenShift Cluster
+- Follow instructions in the OpenShift 4.18 ![documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html-single/installing_an_on-premise_cluster_with_the_agent-based_installer/index#prerequisites_installing-with-agent-based-installer)
 - Create `install-config.yaml` and `agent-config.yaml` files
 - Generate ISO and use it to boot the servers
 - Check installation progress after that
@@ -234,7 +229,6 @@ $ ./openshift-install --dir /root/hub agent wait-for install-complete --log-leve
 
 ## Post Installation - Create CatalogSource, ImageContentSourcePolicy
 - Create a CatalogSource in the cluster
-
 ```
 $ oc create -f oc-mirror-workspace/results-xxxxxxxxxxx/catalogSource-cs-redhat-marketplace-index.yaml
 ``` 
@@ -245,12 +239,12 @@ $ oc create -f oc-mirror-workspace/results-xxxxxxxxxxx/imageContentSourcePolicy.
 ```
 
 - Disable the default OperatorHub catalog sources
-
 ```
 $ oc patch OperatorHub cluster --type json -p '[{"op": "add", "path": "/spec/disableAllDefaultSources", "value": true}]'
 ```
 
-## Update `/etc/hosts` if needed
+
+## Update `/etc/hosts` on the KVM Host, if needed
 ```
 192.168.100.21  api.hub.eanylin.com
 192.168.100.21  oauth-openshift.apps.hub.eanylin.com

@@ -118,16 +118,16 @@ include "/etc/named.root.key";
 ```
 $ cat eanylin.com.zone
 $TTL 8h
-@ IN SOA helper.eanylin.com. root.eanylin.com. (
+@ IN SOA bastion.eanylin.com. root.eanylin.com. (
                           2022070601 ; serial number
                           1d         ; refresh period
                           3h         ; retry period
                           3d         ; expire time
                           3h )       ; minimum TTL
 
-                      IN NS   helper.eanylin.com.
+                      IN NS   bastion.eanylin.com.
 
-helper                IN A    192.168.100.50
+bastion                IN A    192.168.100.50
 api.hub               IN A    192.168.100.20
 *.apps.hub            IN A    192.168.100.21
 master-0.hub          IN A    192.168.100.22
@@ -138,16 +138,16 @@ master-2.hub          IN A    192.168.100.24
 ```
 $ cat 100.168.192.in-addr.arpa.zone
 TTL 8h
-@ IN SOA helper.eanylin.com. root.eanylin.com. (
+@ IN SOA bastion.eanylin.com. root.eanylin.com. (
                           2022070601 ; serial number
                           1d         ; refresh period
                           3h         ; retry period
                           3d         ; expire time
                           3h )       ; minimum TTL
 
-                        IN NS   helper.eanylin.com.
+                        IN NS   bastion.eanylin.com.
 
-50                      IN PTR  helper.eanylin.com.
+50                      IN PTR  bastion.eanylin.com.
 20                      IN PTR  api.hub.eanylin.com.
 22                      IN PTR  master-0.hub.eanylin.com.
 23                      IN PTR  master-1.hub.eanylin.com.
@@ -182,15 +182,15 @@ $ systemctl status named
 - Go to the following [link](https://console.redhat.com/openshift/downloads#tool-mirror-registry) and download the latest version of the mirror registry 
 - Install the mirror registry for Red Hat OpenShift
 ```
-$ ./mirror-registry install --quayHostname helper.eanylin.com --quayRoot /root/quay
+$ ./mirror-registry install --quayHostname bastion.eanylin.com --quayRoot /root/quay
 ```
 
-- Use the user name and password generated during installation to log into the registry by running the following command:
+- Use the user name and password generated during the installation to log into the registry by running the following command:
 ```
-$ podman login -u init -p <password> https://helper.eanylin.com:8443 --tls-verify=false
+$ podman login -u init -p <password> https://bastion.eanylin.com:8443 --tls-verify=false
 ```
  
-- Take care of the self-signed certs of the Helper Node
+- Take care of the self-signed certs of the Bastion VM
 ```
 $ cd /root/quay/
 $ ls
@@ -199,22 +199,21 @@ $ cp rootCA.pem /etc/pki/ca-trust/source/anchors/
 $ update-ca-trust extract
 ```
 
-- Download Pull Secrets from https://console.redhat.com/openshift/install/pull-secret
+- Download Pull Secrets from this [link](https://console.redhat.com/openshift/install/pull-secret)
 - Make a copy of the pull secret in JSON format by running the following command:
 ```
 $ cat ./pull-secret | jq . > pull-secret.json
 ```
 
-- If the $XDG_RUNTIME_DIR/containers directory does not exist, create one by entering the following command:
-- Append the `auth.json` file with the required credentials
+- If the `$XDG_RUNTIME_DIR/containers` directory does not exist, create one by entering the following command:
 ```
 mkdir -p $XDG_RUNTIME_DIR/containers
 ```
 
-
+- Append the `auth.json` file with the required credentials
 - Perform Mirroring
 ```
-$ oc mirror --config=./image-set-configuration-4.18.7.yaml docker://helper.eanylin.com:8443/ocp4
+$ oc mirror --config=./image-set-configuration-4.18.7.yaml docker://bastion.eanylin.com:8443/ocp4
 ```
 
 

@@ -155,14 +155,14 @@ TTL 8h
 $
 ```
 
-- Verify the syntax of the /etc/named.conf file and check the configuration of the zones
+- Verify the syntax of the `/etc/named.conf` file and check the configuration of the zones
 ```
 $ named-checkconf
 $ named-checkzone 100.168.192.in-addr.arpa 100.168.192.in-addr.arpa.zone
 $ named-checkzone eanylin.com eanylin.com.zone
 ```
 
-- Add firewalld rules for DNS and start/enable `named` service
+- Add firewall rules for DNS and start and enable `named` service
 ```
 $ firewall-cmd --permanent --add-service=dns
 $ firewall-cmd --reload
@@ -174,7 +174,7 @@ $ systemctl status named
 
 
 ## NTP Configurations on the Bastion VM (Optional)
-- Follow instructions in the [documentation](https://www.redhat.com/en/blog/chrony-time-services-linux) to configure Chrony NTP services, if an external NTP server is not available
+- Follow instructions in the [documentation](https://www.redhat.com/en/blog/chrony-time-services-linux) to configure Chrony NTP services if an external NTP server is not available
 
 
 ## Set up Mirror Registry and perform the required mirroring on the Bastion VM

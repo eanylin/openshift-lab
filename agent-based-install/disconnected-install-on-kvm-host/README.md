@@ -37,7 +37,7 @@ dnf install bind bind-utils -y
 ```
 
 - Update `/etc/named.conf`
-- A sample will look like the following for a server with IP address `192.168.100.100` on the disconnected network and `192.168.122.100` on the network with internet connectivity
+- A sample configuration for a server with IP address `192.168.100.100` on the disconnected network and `192.168.122.100` on the network with internet connectivity will look like the following
 ```
 //
 // named.conf
@@ -113,8 +113,7 @@ zone "100.168.192.in-addr.arpa" {
 include "/etc/named.rfc1912.zones";
 include "/etc/named.root.key";
 ```
-\
-&nbsp;
+
 - Create the zone files in the `/var/named/` directory
 ```
 $ cat eanylin.com.zone
@@ -155,16 +154,14 @@ TTL 8h
 24                      IN PTR  master-2.hub.eanylin.com.
 $
 ```
-\
-&nbsp;
+
 - Verify the syntax of the /etc/named.conf file and check the configuration of the zones
 ```
 $ named-checkconf
 $ named-checkzone 100.168.192.in-addr.arpa 100.168.192.in-addr.arpa.zone
 $ named-checkzone eanylin.com eanylin.com.zone
 ```
-\
-&nbsp;
+
 - Add firewalld rules for DNS and start/enable `named` service
 ```
 $ firewall-cmd --permanent --add-service=dns
@@ -172,8 +169,7 @@ $ firewall-cmd --reload
 $ systemctl enable --now named
 $ systemctl status named
 ```
-\
-&nbsp;
+
 - Check that DNS resolves properly
 
 

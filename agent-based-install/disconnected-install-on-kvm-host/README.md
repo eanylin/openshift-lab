@@ -30,7 +30,7 @@ $ systemctl enable podman
 
 ## DNS Configurations on the Bastion VM (Optional)
 
-- Follow the following [documentation](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services#proc_configuring-bind-as-a-caching-dns-server_assembly_setting-up-and-configuring-a-bind-dns-server) if there is no available DNS server in the environment
+- Follow the following [documentation](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services#proc_configuring-bind-as-a-caching-dns-server_assembly_setting-up-and-configuring-a-bind-dns-server) if an external DNS server is not available
 - Install the packages required to set up the DNS server
 ```
 dnf install bind bind-utils -y
@@ -174,7 +174,7 @@ $ systemctl status named
 
 
 ## NTP Configurations on the Bastion VM (Optional)
-- Follow instructions in the [documentation](https://www.redhat.com/en/blog/chrony-time-services-linux) to configure Chrony NTP services, if there is no available NTP server
+- Follow instructions in the [documentation](https://www.redhat.com/en/blog/chrony-time-services-linux) to configure Chrony NTP services, if an external NTP server is not available
 
 
 ## Set up Mirror Registry and perform the required mirroring on the Bastion VM

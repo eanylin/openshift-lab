@@ -12,7 +12,7 @@
 
 - Bastion VM will have 2 vNICs, connected to 2 different networks on the KVM Host
     - One of the networks will need to have internet access (via NAT) and the one will be used as host-only network (fully disconnected from the Internet)
-- Proceed to the latest RHEL 9 on the VM
+- Proceed to install the latest RHEL 9 on the VM (minimal install)
     - The VM should have at least 500GB of free space
     - Make sure to assign all the available space to `/`
 - Run the following commands to install the required packages in the bastion VM
@@ -24,7 +24,7 @@ $ systemctl start podman
 $ systemctl enable podman
 ```
 
-- Go to https://console.redhat.com/openshift/downloads and download all the required packages, i.e. `mirror-registry-amd64.tar.gz`, `oc-mirror.rhel9.tar.gz`, `openshift-client-linux.tar.gz`, `openshift-install-linux.tar.gz`
+- Go to the following [link](https://console.redhat.com/openshift/downloads) and download all the required packages, i.e. `mirror-registry-amd64.tar.gz`, `oc-mirror.rhel9.tar.gz`, `openshift-client-linux.tar.gz`, `openshift-install-linux.tar.gz`
 
 - Follow the following [documentation](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services#proc_configuring-bind-as-a-caching-dns-server_assembly_setting-up-and-configuring-a-bind-dns-server) to setup DNS on the host, if need be
 - Install the following packages

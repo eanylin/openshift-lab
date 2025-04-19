@@ -25,6 +25,7 @@ $ oc get pods -n multicluster-engine | grep -i assisted-image-service
 - Adopt and deploy the following YAML files
     - Ensure that the `registries.conf` are properly populated, pointing to the relevant mirrored registry
     - The release image in the `ClusterImageSet` can be retrieved from the mirror registry
+        - Note that ClusterImageSet manages the images required for the cluster
 ```
 $ oc project multicluster-engine
 $ oc create -f assisted-service-configmap.yaml

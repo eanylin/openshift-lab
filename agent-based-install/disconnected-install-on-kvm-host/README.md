@@ -1,3 +1,9 @@
+## Architecture Layout on KVM Host
+
+![Single Node OpenShift Setup](images/sno-architecture.png)
+
+![Compact Cluster Setup](images/compact-cluster-architecture.png)
+
 ## Initial Setup with DNS Configurations
 
 - Install latest RHEL 9. Make sure the RHEL VM has all the 500G assigned to `/` and not split with the `/home/` as is the case with click through installation.

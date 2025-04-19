@@ -4,6 +4,7 @@
 ![Single Node OpenShift Setup](images/sno-architecture.png)
 
 \
+&nbsp;
 - Compact Cluster on KVM Host Setup:
 ![Compact Cluster Setup](images/compact-cluster-architecture.png)
 

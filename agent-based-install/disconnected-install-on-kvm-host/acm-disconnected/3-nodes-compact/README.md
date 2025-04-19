@@ -28,7 +28,7 @@ $ oc create -f cluster-deployment.yaml
 $ oc create -f agent-cluster-install.yaml
 ```
 
-- Create the `InfraEnv`, which generates the discovery ISO for us to boot the node
+- Create the `InfraEnv`, which generates the discovery ISO for us to boot the nodes
 ```
 $ oc create -f infra-env.yaml
 ```

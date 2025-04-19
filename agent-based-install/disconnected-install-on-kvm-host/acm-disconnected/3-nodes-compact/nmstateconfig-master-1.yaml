@@ -1,0 +1,35 @@
+---
+apiVersion: agent-install.openshift.io/v1beta1
+kind: NMStateConfig
+metadata:
+  labels:
+    network: master-1-cluster2
+  name: master-1-cluster2
+  namespace: cluster2
+spec:
+  interfaces:
+    - name: enp1s0
+      macAddress: 52:54:00:58:ba:31
+  config:
+    dns-resolver:
+      config:
+        server:
+          - 192.168.100.100
+    interfaces:
+    - name: enp1s0
+      type: ethernet
+      state: up
+      ipv4:
+        enabled: true
+        dhcp: false
+        address:
+        - ip: 192.168.100.43
+          prefix-length: 24
+      ipv6:
+        enabled: false
+    routes:
+      config:
+      - destination: 0.0.0.0/0
+        next-hop-address: 192.168.100.1
+        next-hop-interface: enp1s0
+        table-id: 254

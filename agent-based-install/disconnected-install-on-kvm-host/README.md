@@ -8,6 +8,7 @@
 - Compact Cluster on KVM Host Setup:
 ![Compact Cluster Setup](images/compact-cluster-architecture.png)
 
+
 ## Setting up the Bastion VM
 
 - Bastion VM will have 2 vNICs, connected to 2 different networks on the KVM Host
@@ -26,7 +27,10 @@ $ systemctl enable podman
 
 - Go to the following [link](https://console.redhat.com/openshift/downloads) and download all the required packages, i.e. `mirror-registry-amd64.tar.gz`, `oc-mirror.rhel9.tar.gz`, `openshift-client-linux.tar.gz`, `openshift-install-linux.tar.gz`
 
-- Follow the following [documentation](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services#proc_configuring-bind-as-a-caching-dns-server_assembly_setting-up-and-configuring-a-bind-dns-server) to setup DNS on the host, if need be
+
+## DNS Configurations on the Bastion VM (Optional)
+
+- Follow the following [documentation](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services#proc_configuring-bind-as-a-caching-dns-server_assembly_setting-up-and-configuring-a-bind-dns-server) if there is no available DNS server in the environment
 - Install the packages required to set up the DNS server
 ```
 dnf install bind bind-utils -y
@@ -171,7 +175,10 @@ $ systemctl status named
 \
 &nbsp;
 - Check that DNS resolves properly
-- Follow instructions in the [documentation](https://www.redhat.com/en/blog/chrony-time-services-linux) to configure Chrony NTP services, if need be
+
+
+## NTP Configurations on the Bastion VM (Optional)
+- Follow instructions in the [documentation](https://www.redhat.com/en/blog/chrony-time-services-linux) to configure Chrony NTP services, if there is no available NTP server
 
 
 ## Set up Mirror Registry and perform the required mirroring on the Bastion VM

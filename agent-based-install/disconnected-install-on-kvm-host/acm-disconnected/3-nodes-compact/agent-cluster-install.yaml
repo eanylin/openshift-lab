@@ -1,0 +1,30 @@
+---
+apiVersion: extensions.hive.openshift.io/v1beta1
+kind: AgentClusterInstall
+metadata:
+  name: cluster2
+  namespace: cluster2
+spec:
+  apiVIPs:
+  - 192.168.100.40
+  ingressVIPs:
+  - 192.168.100.41
+  clusterDeploymentRef:
+    name: cluster2
+  imageSetRef:
+    name: openshift-v4.18.7
+  networking:
+    clusterNetwork:
+    - cidr: 10.136.0.0/14
+      hostPrefix: 23
+    machineNetwork:
+    - cidr: 192.168.100.0/24
+    serviceNetwork:
+    - 172.32.0.0/16
+  provisionRequirements:
+    controlPlaneAgents: 3
+    workerAgents: 0
+  mirrorRegistryRef:
+    name: mirrorconfig
+    namespace: multicluster-engine
+  sshPublicKey: 'ssh-rsa AAABBBCCCDDD= root@bastion.julin.com'

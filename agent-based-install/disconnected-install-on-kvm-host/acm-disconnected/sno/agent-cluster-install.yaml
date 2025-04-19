@@ -24,4 +24,4 @@ spec:
   mirrorRegistryRef:
     name: mirrorconfig
     namespace: multicluster-engine
-  sshPublicKey: 'ssh-rsa AAAA root@jumphost.julin.com'
+  sshPublicKey: 'ssh-rsa AAABBBCCCDDD= root@bastion.julin.com'

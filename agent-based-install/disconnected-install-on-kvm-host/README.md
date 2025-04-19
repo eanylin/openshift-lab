@@ -27,7 +27,7 @@ $ systemctl enable podman
 - Go to the following [link](https://console.redhat.com/openshift/downloads) and download all the required packages, i.e. `mirror-registry-amd64.tar.gz`, `oc-mirror.rhel9.tar.gz`, `openshift-client-linux.tar.gz`, `openshift-install-linux.tar.gz`
 
 - Follow the following [documentation](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services#proc_configuring-bind-as-a-caching-dns-server_assembly_setting-up-and-configuring-a-bind-dns-server) to setup DNS on the host, if need be
-- Install the following packages
+- Install the packages required to set up the DNS server
 ```
 dnf install bind bind-utils -y
 ```

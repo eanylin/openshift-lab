@@ -1,0 +1,10 @@
+---
+apiVersion: hive.openshift.io/v1
+kind: ClusterImageSet
+metadata:
+  name: openshift-v4.18.7
+  labels:
+    channel: 'stable'
+    visible: 'true'
+spec:
+  releaseImage: bastion.julin.com:8443/ocp4/openshift/release-images@sha256:91037938dc2ebc2732e7baa6eb4192fa4376abab19f0f545848a87ab7c91931d

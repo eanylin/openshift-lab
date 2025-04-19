@@ -1,0 +1,27 @@
+---
+apiVersion: extensions.hive.openshift.io/v1beta1
+kind: AgentClusterInstall
+metadata:
+  name: cluster1
+  namespace: cluster1
+spec:
+  clusterDeploymentRef:
+    name: cluster1
+  imageSetRef:
+    name: openshift-v4.18.7
+  networking:
+    clusterNetwork:
+    - cidr: 10.132.0.0/14
+      hostPrefix: 23
+    machineNetwork:
+    - cidr: 192.168.100.0/24
+    serviceNetwork:
+    - 172.31.0.0/16
+    userManagedNetworking: true
+  provisionRequirements:
+    controlPlaneAgents: 1
+    workerAgents: 0
+  mirrorRegistryRef:
+    name: mirrorconfig
+    namespace: multicluster-engine
+  sshPublicKey: 'ssh-rsa AAAA root@jumphost.julin.com'

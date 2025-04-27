@@ -20,7 +20,7 @@
 ```
 $ subscription-manager register
 $ dnf update -y
-$ dnf install install vim net-tools git wget podman nmstate -y
+$ dnf install vim net-tools git wget podman nmstate -y
 $ systemctl start podman
 $ systemctl enable podman
 ```

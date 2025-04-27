@@ -165,7 +165,7 @@ $ sudo named-checkzone 100.168.192.in-addr.arpa 100.168.192.in-addr.arpa.zone
 $ sudo named-checkzone eanylin.com eanylin.com.zone
 ```
 
-- Add firewall rules for DNS and start and enable `named` service
+- Add firewall rules for DNS as well as start, enable and check status of `named` service
 ```
 $ sudo firewall-cmd --permanent --add-service=dns
 $ sudo firewall-cmd --reload

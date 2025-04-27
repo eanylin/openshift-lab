@@ -18,11 +18,11 @@
     - Make sure to assign all the available space to `/`
 - Run the following commands to install the required packages in the bastion VM
 ```
-$ subscription-manager register
-$ dnf update -y
-$ dnf install vim net-tools git wget podman nmstate -y
-$ systemctl start podman
-$ systemctl enable podman
+$ sudo subscription-manager register
+$ sudo dnf update -y
+$ sudo dnf install vim net-tools git wget podman nmstate -y
+$ sudo systemctl start podman
+$ sudo systemctl enable podman
 ```
 
 - Download all the required packages, i.e. `mirror-registry-amd64.tar.gz`, `oc-mirror.rhel9.tar.gz`, `openshift-client-linux.tar.gz`, `openshift-install-linux.tar.gz`
@@ -39,7 +39,7 @@ $ wget https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/o
 - Follow the following [documentation](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/managing_networking_infrastructure_services/assembly_setting-up-and-configuring-a-bind-dns-server_networking-infrastructure-services#proc_configuring-bind-as-a-caching-dns-server_assembly_setting-up-and-configuring-a-bind-dns-server) if an external DNS server is not available
 - Install the packages required to set up the DNS server
 ```
-dnf install bind bind-utils -y
+sudo dnf install bind bind-utils -y
 ```
 
 - Update `/etc/named.conf`
@@ -163,17 +163,17 @@ $
 
 - Verify the syntax of the `/etc/named.conf` file and check the configuration of the zones
 ```
-$ named-checkconf
-$ named-checkzone 100.168.192.in-addr.arpa 100.168.192.in-addr.arpa.zone
-$ named-checkzone eanylin.com eanylin.com.zone
+$ sudo named-checkconf
+$ sudo named-checkzone 100.168.192.in-addr.arpa 100.168.192.in-addr.arpa.zone
+$ sudo named-checkzone eanylin.com eanylin.com.zone
 ```
 
 - Add firewall rules for DNS and start and enable `named` service
 ```
-$ firewall-cmd --permanent --add-service=dns
-$ firewall-cmd --reload
-$ systemctl enable --now named
-$ systemctl status named
+$ sudo firewall-cmd --permanent --add-service=dns
+$ sudo firewall-cmd --reload
+$ sudo systemctl enable --now named
+$ sudo systemctl status named
 ```
 
 - Check that DNS resolves properly
@@ -188,12 +188,12 @@ $ systemctl status named
 - Go to the following [link](https://console.redhat.com/openshift/downloads#tool-mirror-registry) and download the latest version of the mirror registry 
 - Install the mirror registry for Red Hat OpenShift
 ```
-$ ./mirror-registry install --quayHostname bastion.eanylin.com --quayRoot /root/quay
+$ sudo ./mirror-registry install --quayHostname bastion.eanylin.com --quayRoot /root/quay
 ```
 
 - Use the user name and password generated during the installation to log into the registry by running the following command:
 ```
-$ podman login -u init -p <password> https://bastion.eanylin.com:8443 --tls-verify=false
+$ sudo podman login -u init -p <password> https://bastion.eanylin.com:8443 --tls-verify=false
 ```
  
 - Take care of the self-signed certs of the Bastion VM
@@ -201,8 +201,8 @@ $ podman login -u init -p <password> https://bastion.eanylin.com:8443 --tls-veri
 $ cd /root/quay/
 $ ls
 quay-config  quay-rootCA
-$ cp rootCA.pem /etc/pki/ca-trust/source/anchors/
-$ update-ca-trust extract
+$ sudo cp rootCA.pem /etc/pki/ca-trust/source/anchors/
+$ sudo update-ca-trust extract
 ```
 
 - Download Pull Secrets from this [link](https://console.redhat.com/openshift/install/pull-secret)
@@ -213,7 +213,7 @@ $ cat ./pull-secret | jq . > pull-secret.json
 
 - If the `$XDG_RUNTIME_DIR/containers` directory does not exist, create one by entering the following command:
 ```
-mkdir -p $XDG_RUNTIME_DIR/containers
+sudo mkdir -p $XDG_RUNTIME_DIR/containers
 ```
 
 - Create and/or append the `auth.json` file with the required credentials

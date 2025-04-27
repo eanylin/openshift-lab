@@ -1,0 +1,39 @@
+---
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v2alpha1
+mirror:
+  platform:
+    channels:
+    - name: stable-4.18
+      type: ocp
+    graph: false
+  operators:
+  - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.18
+    packages:
+    - name: kubernetes-nmstate-operator
+      defaultChannel: stable
+    - name: metallb-operator
+      defaultChannel: stable
+    - name: openshift-cert-manager-operator
+      defaultChannel: stable-v1
+    - name: cluster-observability-operator
+      defaultChannel: stable
+    - name: lvms-operator
+      defaultChannel: stable-4.18
+    - name: openstack-operator
+      defaultChannel: stable-v1.0
+    - name: web-terminal
+      defaultChannel: fast
+    - name: cincinnati-operator
+      defaultChannel: v1
+    - name: odf-operator
+      defaultChannel: stable-4.18
+    - name: local-storage-operator
+      defaultChannel: stable
+    - name: advanced-cluster-management
+      defaultChannel: release-2.13
+    - name: multicluster-engine
+      defaultChannel: stable-2.8
+  additionalImages:
+  - name: registry.redhat.io/ubi9/ubi:latest
+  helm: {}

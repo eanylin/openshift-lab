@@ -120,9 +120,8 @@ include "/etc/named.rfc1912.zones";
 include "/etc/named.root.key";
 ```
 
-- Create the zone files in the `/var/named/` directory
+- Create the required zone files in the `/var/named/` directory, i.e. `eanylin.com.zone` and `100.168.192.in-addr.arpa.zone` respectively
 ```
-$ cat eanylin.com.zone
 $TTL 8h
 @ IN SOA bastion.eanylin.com. root.eanylin.com. (
                           2022070601 ; serial number
@@ -142,8 +141,7 @@ master-2.hub          IN A    192.168.100.24
 ```
 
 ```
-$ cat 100.168.192.in-addr.arpa.zone
-TTL 8h
+$TTL 8h
 @ IN SOA bastion.eanylin.com. root.eanylin.com. (
                           2022070601 ; serial number
                           1d         ; refresh period
@@ -158,7 +156,6 @@ TTL 8h
 22                      IN PTR  master-0.hub.eanylin.com.
 23                      IN PTR  master-1.hub.eanylin.com.
 24                      IN PTR  master-2.hub.eanylin.com.
-$
 ```
 
 - Verify the syntax of the `/etc/named.conf` file and check the configuration of the zones

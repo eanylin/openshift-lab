@@ -217,7 +217,7 @@ sudo mkdir -p $XDG_RUNTIME_DIR/containers
 - Perform Mirroring
 ```
 # Using v1 mirroring
-$ oc mirror --config=./image-set-configuration-4.18.7.yaml docker://bastion.eanylin.com:8443/ocp4
+$ oc mirror --config=./image-set-configuration-4.18.7-v1.yaml docker://bastion.eanylin.com:8443/ocp4
 
 # Using v2 mirroring
 $ oc mirror --v2 --config ./imageset-config-4.18-v2.yaml --workspace file:///root/ocp/oc-mirror-workspace docker://bastion.eanylin.com:8443/ocp4

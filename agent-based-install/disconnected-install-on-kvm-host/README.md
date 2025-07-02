@@ -198,7 +198,7 @@ $ sudo podman login -u init -p <password> https://bastion.eanylin.com:8443 --tls
 $ cd /root/quay/
 $ ls
 quay-config  quay-rootCA
-$ sudo cp rootCA.pem /etc/pki/ca-trust/source/anchors/
+$ sudo cp quay-rootCA/rootCA.pem /etc/pki/ca-trust/source/anchors/
 $ sudo update-ca-trust extract
 ```
 

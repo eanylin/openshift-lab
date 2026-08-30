@@ -1,0 +1,39 @@
+apiVersion: observability.openshift.io/v1
+kind: ClusterLogForwarder
+metadata:
+  name: instance
+  namespace: openshift-logging
+spec:
+  managementState: Managed
+  serviceAccount:
+    name: collector
+  outputs:
+    - name: default-lokistack
+      type: lokiStack
+      lokiStack:
+        authentication:
+          token:
+            from: serviceAccount
+        target:
+          name: logging-loki
+          namespace: openshift-logging
+      tls:
+        ca:
+          configMapName: logging-loki-gateway-ca-bundle
+          key: service-ca.crt
+    - name: bastion-rsyslog
+      type: syslog
+      syslog:
+        rfc: RFC5424
+        payloadKey: "{.message}"
+        enrichment: KubernetesMinimal
+        severity: informational
+        url: tcp://__BASTION_SYSLOG_HOST__:__BASTION_SYSLOG_PORT__
+  pipelines:
+    - name: app-and-infra
+      inputRefs:
+        - application
+        - infrastructure
+      outputRefs:
+        - default-lokistack
+        - bastion-rsyslog

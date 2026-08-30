@@ -1,0 +1,9 @@
+# Local configuration and generated secrets — never commit
+config/env.local
+config/secrets.env
+*.generated.yaml
+*.local.yaml
+
+# Editor / OS
+.DS_Store
+*.swp

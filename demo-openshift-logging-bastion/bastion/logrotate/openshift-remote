@@ -1,0 +1,11 @@
+# Demo-friendly rotation: ~50MB active + one compressed backup
+/var/log/openshift-remote.log {
+    size 50M
+    rotate 1
+    compress
+    missingok
+    notifempty
+    copytruncate
+    dateext
+    dateformat -%Y%m%d
+}

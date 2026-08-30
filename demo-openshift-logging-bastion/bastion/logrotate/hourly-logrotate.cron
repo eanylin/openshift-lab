@@ -1,0 +1,3 @@
+# Optional: rotate hourly when audit volume fills the log before daily cron.
+# Install: scripts/install-bastion-receiver.sh
+0 * * * * root /usr/sbin/logrotate /etc/logrotate.d/openshift-remote

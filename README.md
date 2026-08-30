@@ -1,6 +1,6 @@
 # openshift-lab
 
-OpenShift demos and lab assets.
+OpenShift demos and lab assets — pinned ExploitIQ/RHTPA deploys, logging, backup/restore, agent-based install, and more.
 
 | Folder | Description |
 |--------|-------------|

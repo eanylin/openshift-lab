@@ -1,0 +1,193 @@
+---
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v2alpha1
+mirror:
+  platform:
+    channels:
+    - name: stable-4.22
+      minVersion: 4.22.10
+      maxVersion: 4.22.10
+      type: ocp
+#      shortestPath: true
+    graph: true
+  additionalImages:
+  - name: registry.redhat.io/openshift4/ose-cli:latest
+  - name: registry.redhat.io/rhel9/support-tools:latest
+  - name: quay.io/openshifttest/hello-openshift:1.2.0
+  - name: registry.redhat.io/ubi9/ubi:latest
+  - name: quay.io/containerdisks/centos-stream:10
+  - name: quay.io/containerdisks/centos-stream:9
+  - name: quay.io/containerdisks/fedora:latest
+  helm: {}
+  operators:
+  - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.22
+    packages:
+    - name: advanced-cluster-management
+      channels:
+      - name: "release-2.17"
+    - name: authorino-operator
+      channels:
+      - name: "stable"
+    - name: cephcsi-operator
+      channels:
+      - name: "stable-4.22"
+    - name: cincinnati-operator  # OpenShift Update Service
+      channels:
+      - name: "v1"
+    - name: cli-manager
+      channels:
+      - name: "tech-preview"
+    - name: cluster-kube-descheduler-operator
+      channels:
+      - name: "stable"
+    - name: cluster-observability-operator
+      channels:
+      - name: "stable"
+    - name: compliance-operator
+      channels:
+      - name: "stable"
+    - name: devworkspace-operator
+      channels:
+      - name: "fast"
+    - name: fence-agents-remediation
+      channels:
+      - name: "stable"
+    - name: job-set
+      channels:
+      - name: "stable-v1.0"
+    - name: kiali-ossm
+      channels:
+      - name: "stable"
+    - name: kubernetes-nmstate-operator
+      channels:
+      - name: "stable"
+    - name: kubevirt-hyperconverged  # OpenShift Virtualization
+      channels:
+      - name: "stable"
+    - name: kueue-operator
+      channels:
+      - name: "stable-v1.4"
+    - name: leader-worker-set
+      channels:
+      - name: "stable-v1.0"
+    - name: local-storage-operator
+      channels:
+      - name: "stable"
+    - name: lvms-operator  # LVM Storage
+      channels:
+      - name: "stable-4.22"
+    - name: mcg-operator  # NooBaa Operator
+      channels:
+      - name: "stable-4.22"
+    - name: metallb-operator
+      channels:
+      - name: "stable"
+    - name: mtv-operator  # Migration Toolkit for Virtualization Operator
+      channels:
+      - name: "release-v2.12"
+    - name: multicluster-engine
+      channels:
+      - name: "stable-2.17"
+    - name: nfd  # Node Feature Discovery Operator
+      channels:
+      - name: "stable"
+    - name: node-healthcheck-operator
+      channels:
+      - name: "stable"
+    - name: node-maintenance-operator
+      channels:
+      - name: "stable"
+    - name: ocs-client-operator  # OpenShift Data Foundation Client
+      channels:
+      - name: "stable-4.22"
+    - name: ocs-operator  # OpenShift Container Storage
+      channels:
+      - name: "stable-4.22"
+    - name: ocs-tls-profiles
+      channels:
+      - name: "stable-4.22"
+    - name: odf-csi-addons-operator
+      channels:
+      - name: "stable-4.22"
+    - name: odf-dependencies  # Data Foundation Dependencies
+      channels:
+      - name: "stable-4.22"
+    - name: odf-external-snapshotter-operator  # Snapshot Controller
+      channels:
+      - name: "stable-4.22"
+    - name: odf-operator  # OpenShift Data Foundation
+      channels:
+      - name: "stable-4.22"
+    - name: odf-prometheus-operator
+      channels:
+      - name: "stable-4.22"
+    - name: odr-cluster-operator  # Openshift DR Cluster Operator
+      channels:
+      - name: "stable-4.22"
+    - name: odr-hub-operator  # Openshift DR Hub Operator
+      channels:
+      - name: "stable-4.22"
+    - name: openshift-cert-manager-operator
+      channels:
+      - name: "stable-v1"
+    - name: openshift-custom-metrics-autoscaler-operator
+      channels:
+      - name: "stable"
+    - name: opentelemetry-product  # Red Hat build of OpenTelemetry
+      channels:
+      - name: "stable"
+    - name: quay-bridge-operator
+      channels:
+      - name: "stable-3.17"
+    - name: quay-operator
+      channels:
+      - name: "stable-3.17"
+    - name: recipe
+      channels:
+      - name: "stable-4.22"
+    - name: redhat-oadp-operator
+      channels:
+      - name: "stable"
+    - name: rhacs-operator  # Advanced Cluster Security for Kubernetes
+      channels:
+      - name: "stable"
+    - name: rhcl-operator  # Red Hat Connectivity Link
+      channels:
+      - name: "stable"
+    - name: rhods-operator  # Red Hat OpenShift AI
+      channels:
+      - name: "stable-3.x"
+    - name: rook-ceph-operator
+      channels:
+      - name: "stable-4.22"
+    - name: self-node-remediation
+      channels:
+      - name: "stable"
+    - name: servicemeshoperator3  # Red Hat OpenShift Service Mesh 3
+      channels:
+      - name: "stable"
+    - name: sriov-network-operator  # SR-IOV Network Operator
+      channels:
+      - name: "stable"
+    - name: submariner
+      channels:
+      - name: "stable-0.24"
+    - name: tempo-product
+      channels:
+      - name: "stable"
+    - name: web-terminal
+      channels:
+      - name: "fast"
+  - catalog: registry.redhat.io/redhat/certified-operator-index:v4.22
+    packages:
+    - name: gpu-operator-certified  # NVIDIA GPU Operator
+      channels:
+      - name: "v26.3"
+    - name: spyre-operator
+      channels:
+      - name: "stable-v1.3"
+  - catalog: registry.redhat.io/redhat/community-operator-index:v4.22
+    packages:
+    - name: cert-manager
+      channels:
+      - name: "stable"

@@ -20,7 +20,7 @@
 ```
 $ sudo subscription-manager register
 $ sudo dnf update -y
-$ sudo dnf install vim net-tools git wget podman nmstate -y
+$ sudo dnf install vim net-tools git wget podman nmstate skopeo -y
 $ sudo systemctl start podman
 $ sudo systemctl enable podman
 ```
@@ -55,7 +55,7 @@ sudo dnf install bind bind-utils -y
 //
 
 options {
-        listen-on port 53 { 127.0.0.1; 192.168.122.100; 192.168.100.100;};
+    listen-on port 53 { 127.0.0.1; 192.168.122.100; 192.168.100.100;};
 	listen-on-v6 port 53 { ::1; };
 	directory 	"/var/named";
 	dump-file 	"/var/named/data/cache_dump.db";
@@ -63,8 +63,8 @@ options {
 	memstatistics-file "/var/named/data/named_mem_stats.txt";
 	secroots-file	"/var/named/data/named.secroots";
 	recursing-file	"/var/named/data/named.recursing";
-        allow-query     { localhost; 192.168.100.0/24; 192.168.122.0/24; 0.0.0.0/0;};
-        allow-recursion { localhost; 192.168.100.0/24; 192.168.122.0/24; };
+    allow-query     { localhost; 192.168.100.0/24; 192.168.122.0/24; 0.0.0.0/0;};
+    allow-recursion { localhost; 192.168.100.0/24; 192.168.122.0/24; };
 
 	/* 
 	 - If you are building an AUTHORITATIVE DNS server, do NOT enable recursion.
@@ -232,7 +232,7 @@ $ oc mirror --v2 --config ./imageset-config-4.18-v2.yaml --workspace file:///roo
 ```
 $ ./openshift-install version
 $ ./openshift-install --dir /root/hub agent create image
-$ ./openshift-install -dir /root/hub agent wait-for bootstrap-complete --log-level=debug
+$ ./openshift-install --dir /root/hub agent wait-for bootstrap-complete --log-level=debug
 $ ./openshift-install --dir /root/hub agent wait-for install-complete --log-level=debug
 ```
 

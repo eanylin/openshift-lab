@@ -1,0 +1,67 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: fx-rate-act3b-validate
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Act 3b validate (parasol-secured-validate): wait for Chains/TAS attestation,
+    Conforma @minimal, then open a GitLab MR to promote the digest to fxrate-prod.
+  params:
+    - name: image
+      type: string
+      description: Full image@sha256:digest
+    - name: image-repo
+      type: string
+      description: Image repo without digest
+      default: quay.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/fx-rate-service
+    - name: image-digest
+      type: string
+      description: sha256:... (same digest as in image)
+    - name: image-tag
+      type: string
+      default: 3.0.0-act3b
+    - name: git-revision
+      type: string
+      default: main
+  workspaces:
+    - name: cosign-key
+    - name: basic-auth
+  tasks:
+    - name: wait-for-attestation
+      taskRef:
+        name: wait-for-attestation
+      params:
+        - name: IMAGE
+          value: $(params.image)
+      workspaces:
+        - name: cosign-key
+          workspace: cosign-key
+
+    - name: conforma-validate
+      runAfter: [wait-for-attestation]
+      taskRef:
+        name: conforma-validate
+      params:
+        - name: IMAGE
+          value: $(params.image)
+      workspaces:
+        - name: cosign-key
+          workspace: cosign-key
+
+    - name: open-prod-promote-mr
+      runAfter: [conforma-validate]
+      taskRef:
+        name: open-prod-promote-mr
+      params:
+        - name: IMAGE
+          value: $(params.image-repo)
+        - name: IMAGE_DIGEST
+          value: $(params.image-digest)
+        - name: IMAGE_TAG
+          value: $(params.image-tag)
+      workspaces:
+        - name: basic-auth
+          workspace: basic-auth

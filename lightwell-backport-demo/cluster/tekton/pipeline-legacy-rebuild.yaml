@@ -1,0 +1,97 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"tekton.dev/v1","kind":"Pipeline","metadata":{"annotations":{},"labels":{"app.kubernetes.io/part-of":"fx-rate-demo"},"name":"fx-rate-legacy-rebuild","namespace":"fxrate-ci"},"spec":{"params":[{"name":"git-url","type":"string"},{"default":"main","name":"git-revision","type":"string"},{"name":"image","type":"string"},{"default":"1.0.0-legacy","name":"image-tag","type":"string"},{"default":"fx-rate-service/Containerfile.legacy","name":"dockerfile","type":"string"},{"default":"fx-rate-service","name":"context","type":"string"},{"name":"legacy-base","type":"string"},{"name":"pip-index-url","type":"string"},{"name":"label-git-url","type":"string"},{"name":"label-git-revision","type":"string"}],"tasks":[{"name":"clone-source","params":[{"name":"URL","value":"$(params.git-url)"},{"name":"REVISION","value":"$(params.git-revision)"},{"name":"SSL_VERIFY","value":"false"}],"taskRef":{"params":[{"name":"kind","value":"task"},{"name":"name","value":"git-clone"},{"name":"namespace","value":"openshift-pipelines"}],"resolver":"cluster"},"workspaces":[{"name":"output","workspace":"source"},{"name":"basic-auth","workspace":"basic-auth"}]},{"name":"build-and-push","params":[{"name":"IMAGE","value":"$(params.image):$(params.image-tag)"},{"name":"DOCKERFILE","value":"$(params.dockerfile)"},{"name":"CONTEXT","value":"$(params.context)"},{"name":"TLS_VERIFY","value":"false"},{"name":"STORAGE_DRIVER","value":"vfs"},{"name":"BUILD_ARGS","value":["LEGACY_BASE=$(params.legacy-base)","PIP_INDEX_URL=$(params.pip-index-url)","GIT_URL=$(params.label-git-url)","GIT_REVISION=$(params.label-git-revision)"]}],"runAfter":["clone-source"],"taskRef":{"params":[{"name":"kind","value":"task"},{"name":"name","value":"buildah"},{"name":"namespace","value":"openshift-pipelines"}],"resolver":"cluster"},"workspaces":[{"name":"source","workspace":"source"},{"name":"dockerconfig","workspace":"dockerconfig"}]}],"workspaces":[{"name":"source"},{"name":"basic-auth"},{"name":"dockerconfig"}]}}
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+  name: fx-rate-legacy-rebuild
+  namespace: fxrate-ci
+spec:
+  params:
+  - name: git-url
+    type: string
+  - default: main
+    name: git-revision
+    type: string
+  - name: image
+    type: string
+  - default: 1.0.0-legacy
+    name: image-tag
+    type: string
+  - default: fx-rate-service/Containerfile.legacy
+    name: dockerfile
+    type: string
+  - default: fx-rate-service
+    name: context
+    type: string
+  - name: legacy-base
+    type: string
+  - name: pip-index-url
+    type: string
+  - name: label-git-url
+    type: string
+  - name: label-git-revision
+    type: string
+  tasks:
+  - name: clone-source
+    params:
+    - name: URL
+      value: $(params.git-url)
+    - name: REVISION
+      value: $(params.git-revision)
+    - name: SSL_VERIFY
+      value: "false"
+    taskRef:
+      params:
+      - name: kind
+        value: task
+      - name: name
+        value: git-clone
+      - name: namespace
+        value: openshift-pipelines
+      resolver: cluster
+    workspaces:
+    - name: output
+      workspace: source
+    - name: basic-auth
+      workspace: basic-auth
+  - name: build-and-push
+    params:
+    - name: IMAGE
+      value: $(params.image):$(params.image-tag)
+    - name: DOCKERFILE
+      value: $(params.dockerfile)
+    - name: CONTEXT
+      value: $(params.context)
+    - name: TLS_VERIFY
+      value: "false"
+    - name: STORAGE_DRIVER
+      value: vfs
+    - name: BUILD_ARGS
+      value:
+      - LEGACY_BASE=$(params.legacy-base)
+      - PIP_INDEX_URL=$(params.pip-index-url)
+      - GIT_URL=$(params.label-git-url)
+      - GIT_REVISION=$(params.label-git-revision)
+    runAfter:
+    - clone-source
+    taskRef:
+      params:
+      - name: kind
+        value: task
+      - name: name
+        value: buildah
+      - name: namespace
+        value: openshift-pipelines
+      resolver: cluster
+    workspaces:
+    - name: source
+      workspace: source
+    - name: dockerconfig
+      workspace: dockerconfig
+  workspaces:
+  - name: source
+  - name: basic-auth
+  - name: dockerconfig

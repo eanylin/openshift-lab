@@ -1,0 +1,24 @@
+# Act 3a+ multi-stage RHHI build (constitution IV).
+# Digests MUST be substituted from digests.env at build time (constitution I).
+# Example:
+#   docker build --build-arg RHHI_BUILDER=...@sha256:... --build-arg RHHI_RUNTIME=...@sha256:...
+
+ARG RHHI_BUILDER=registry.access.redhat.com/hi/python:3.12-builder@sha256:REPLACE_ME_RHHI_PYTHON_312_BUILDER
+ARG RHHI_RUNTIME=registry.access.redhat.com/hi/python:3.12@sha256:REPLACE_ME_RHHI_PYTHON_312_RUNTIME
+
+FROM ${RHHI_BUILDER} AS build
+USER 0
+COPY requirements.txt /tmp/requirements.txt
+RUN python -m venv /opt/venv \
+ && /opt/venv/bin/pip install --upgrade pip \
+ && /opt/venv/bin/pip install --require-hashes --no-deps --only-binary=:all: -r /tmp/requirements.txt
+COPY fxrate/ /opt/app/fxrate/
+COPY demo_ui.html /opt/app/demo_ui.html
+
+FROM ${RHHI_RUNTIME}
+COPY --from=build /opt/venv /opt/venv
+COPY --from=build /opt/app /opt/app
+WORKDIR /opt/app
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8080
+ENTRYPOINT ["/opt/venv/bin/gunicorn", "-b", "0.0.0.0:8080", "fxrate:app"]

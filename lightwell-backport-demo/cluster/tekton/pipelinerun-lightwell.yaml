@@ -1,0 +1,47 @@
+# Lightwell backport PipelineRun (Act 0 +rhlw-0001) — full E2E (pins dev, Conforma, promote MR).
+# Prereq: pypi-hosted-rhlw populated; Containerfile.rhlw + requirements-rhlw.txt on git-revision.
+#
+#   oc -n fxrate-ci apply -f cluster/tekton/tasks/pytest-pip-audit.yaml
+#   oc -n fxrate-ci apply -f cluster/tekton/pipeline-lightwell.yaml
+#   oc -n fxrate-ci create -f cluster/tekton/pipelinerun-lightwell.yaml
+#
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: fx-rate-lightwell-
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+    demo.fxrate.index: lightwell-mock
+spec:
+  serviceAccountName: pipeline
+  pipelineRef:
+    name: fx-rate-lightwell
+  params:
+    - name: git-revision
+      value: main
+    - name: image-tag
+      value: 3.0.0-rhlw
+  workspaces:
+    - name: source
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+    - name: basic-auth
+      secret:
+        secretName: gitlab-basic-auth
+    - name: dockerconfig
+      secret:
+        secretName: quay-push-secret
+    - name: acs-token
+      secret:
+        secretName: acs-api-token
+    - name: cosign-key
+      secret:
+        secretName: cosign-signing
+    - name: sonar-credentials
+      secret:
+        secretName: sonarqube-credentials

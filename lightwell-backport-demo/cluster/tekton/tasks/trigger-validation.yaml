@@ -1,0 +1,66 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: trigger-validation
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Kick off fx-rate-act3b-validate PipelineRun (wait-attestation + Conforma +
+    open-prod-promote-mr), matching parasol trigger-validation-secured.
+  params:
+    - name: IMAGE
+      description: Full image@digest to validate
+    - name: GIT_REVISION
+      default: main
+    - name: IMAGE_TAG
+      default: 3.0.0-act3b
+  steps:
+    - name: trigger
+      image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        FULL="$(params.IMAGE)"
+        REPO="${FULL%%@*}"
+        DIGEST="${FULL#*@}"
+        case "$DIGEST" in
+          sha256:*) ;;
+          *) echo "IMAGE must be repo@sha256:..." >&2; exit 1 ;;
+        esac
+        cat <<PIPELINERUN | oc create -f -
+        apiVersion: tekton.dev/v1
+        kind: PipelineRun
+        metadata:
+          generateName: fx-rate-act3b-validate-
+          namespace: fxrate-ci
+          labels:
+            app.kubernetes.io/part-of: fx-rate-demo
+            demo.fxrate.act: "3b"
+            demo.fxrate.phase: validate
+        spec:
+          pipelineRef:
+            name: fx-rate-act3b-validate
+          params:
+            - name: image
+              value: "${FULL}"
+            - name: image-repo
+              value: "${REPO}"
+            - name: image-digest
+              value: "${DIGEST}"
+            - name: image-tag
+              value: "$(params.IMAGE_TAG)"
+            - name: git-revision
+              value: "$(params.GIT_REVISION)"
+          taskRunTemplate:
+            serviceAccountName: pipeline
+          workspaces:
+            - name: cosign-key
+              secret:
+                secretName: cosign-signing
+            - name: basic-auth
+              secret:
+                secretName: gitlab-basic-auth
+        PIPELINERUN
+        echo "Validation PipelineRun created for ${FULL}"

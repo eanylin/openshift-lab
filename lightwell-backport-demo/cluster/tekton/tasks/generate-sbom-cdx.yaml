@@ -1,0 +1,73 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: generate-sbom-cdx
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Generate a CycloneDX 1.6 SBOM for a container image with syft (parity with
+    parasol generate-sbom-secured). Prefer this for TPA upload; cosign-sign-sbom
+    still attaches SPDX attestations to Quay.
+  params:
+    - name: IMAGE
+      description: Full image reference (repo:tag or repo@sha256:…)
+    - name: SOURCE_NAME
+      default: fx-rate-service
+    - name: SOURCE_VERSION
+      default: ""
+    - name: SBOM_OUTPUT_PATH
+      default: sbom/sbom-cyclonedx.json
+  workspaces:
+    - name: source
+    - name: dockerconfig
+      optional: true
+  steps:
+    - name: generate-sbom
+      image: registry.access.redhat.com/ubi9-minimal:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        DOCKER_CONFIG_DIR="/tmp/docker-config"
+        mkdir -p "${DOCKER_CONFIG_DIR}"
+        if [ -f "$(workspaces.dockerconfig.path)/.dockerconfigjson" ]; then
+          cp "$(workspaces.dockerconfig.path)/.dockerconfigjson" "${DOCKER_CONFIG_DIR}/config.json"
+        elif [ -f "$(workspaces.dockerconfig.path)/config.json" ]; then
+          cp "$(workspaces.dockerconfig.path)/config.json" "${DOCKER_CONFIG_DIR}/config.json"
+        fi
+        export DOCKER_CONFIG="${DOCKER_CONFIG_DIR}"
+
+        microdnf install -y tar gzip --nodocs && microdnf clean all
+        curl -sSfL https://get.anchore.io/syft | sh -s -- -b /tmp/bin
+        export PATH="/tmp/bin:${PATH}"
+
+        SBOM_DIR=$(dirname "$(params.SBOM_OUTPUT_PATH)")
+        mkdir -p "${SBOM_DIR}"
+
+        # Quay FEATURE_PROXY_STORAGE + Tekton SSL_CERT_DIR break syft TLS; unset.
+        unset SSL_CERT_DIR
+
+        syft "registry:$(params.IMAGE)" \
+          --source-name "$(params.SOURCE_NAME)" \
+          --source-version "$(params.SOURCE_VERSION)" \
+          --scope deep-squashed \
+          -o "cyclonedx-json@1.6=$(params.SBOM_OUTPUT_PATH)"
+
+        echo "SBOM written to $(params.SBOM_OUTPUT_PATH)"
+    - name: verify
+      image: registry.access.redhat.com/ubi9:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        SBOM_FILE="$(params.SBOM_OUTPUT_PATH)"
+        python3 - <<PY
+        import json
+        sbom = json.load(open("${SBOM_FILE}"))
+        comps = sbom.get("components") or []
+        print(f"CycloneDX {sbom.get('specVersion')} components={len(comps)}")
+        if not comps:
+            raise SystemExit("SBOM has zero components")
+        PY

@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: fxrate-prod
+resources:
+  - ../../base
+labels:
+  - pairs:
+      environment: prod
+      demo.fxrate.act: "3b"
+    includeSelectors: false
+commonAnnotations:
+  demo.fxrate.image: 3.0.0-act3b
+# Prod pin moves via promote MR (open-prod-promote-mr), not CI push to main.
+images:
+  - name: quay.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/fx-rate-service
+    digest: sha256:b73aae7ce0ffd6c89dd96f4fe72d67dbd80af37415f978c4b0c8c4c964f31584

@@ -1,0 +1,105 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: update-gitops-digest
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Fresh-clone GitLab, pin the digest on the *dev* overlay (kustomize images:),
+    and push so Argo fx-rate-dev auto-syncs. Prod is promoted separately via MR
+    (open-prod-promote-mr) for an auditable change record.
+  params:
+    - name: IMAGE
+      description: Image repo without digest (e.g. quay.../fxrate/fx-rate-service)
+    - name: IMAGE_DIGEST
+      description: sha256:... digest from buildah
+    - name: GIT_URL
+      default: https://gitlab-gitlab.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/python-cve-upgrade-demo.git
+    - name: GIT_REVISION
+      description: Branch name or commit SHA (webhook sends body.after SHA)
+      default: main
+    - name: GIT_PUSH_BRANCH
+      description: Branch to push the digest pin to (always a branch — never a SHA)
+      default: main
+    - name: KUSTOMIZATION_FILE
+      default: fx-rate-gitops/overlays/dev/kustomization.yaml
+  workspaces:
+    - name: basic-auth
+  steps:
+    - name: commit-and-push
+      image: alpine/git:2.47.1
+      env:
+        - name: HOME
+          value: /tekton/home
+      script: |
+        #!/usr/bin/env sh
+        set -eu
+        # python for YAML-safe digest rewrite (apk add on alpine/git image)
+        apk add --no-cache python3 >/dev/null
+        DIGEST="$(params.IMAGE_DIGEST)"
+        IMAGE="$(params.IMAGE)"
+        FILE="$(params.KUSTOMIZATION_FILE)"
+        REV="$(params.GIT_REVISION)"
+        PUSH_BRANCH="$(params.GIT_PUSH_BRANCH)"
+        case "$DIGEST" in
+          sha256:*) ;;
+          *) DIGEST="sha256:${DIGEST}" ;;
+        esac
+        # Webhook passes commit SHA as git-revision; --branch cannot take a SHA.
+        case "$REV" in
+          [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+            CLONE_REF="$PUSH_BRANCH"
+            ;;
+          *)
+            CLONE_REF="$REV"
+            PUSH_BRANCH="$REV"
+            ;;
+        esac
+        echo "Pinning ${FILE} images[${IMAGE}].digest -> ${DIGEST} (clone=${CLONE_REF} push=${PUSH_BRANCH})"
+
+        cp "$(workspaces.basic-auth.path)/.git-credentials" "${HOME}/.git-credentials"
+        cp "$(workspaces.basic-auth.path)/.gitconfig" "${HOME}/.gitconfig"
+        git config --global credential.helper store
+        git config --global --add safe.directory '*'
+        git config --global user.email "fxrate-pipeline@rhdemo.com"
+        git config --global user.name "fxrate-ci pipeline"
+
+        WORK=/tmp/fxrate-git
+        rm -rf "${WORK}"
+        git clone --depth=1 --branch "${CLONE_REF}" "$(params.GIT_URL)" "${WORK}"
+        cd "${WORK}"
+
+        IMAGE="$IMAGE" DIGEST="$DIGEST" FILE="$FILE" python3 - <<'PY'
+        import os, pathlib, re
+        path = pathlib.Path(os.environ["FILE"])
+        image = os.environ["IMAGE"]
+        digest = os.environ["DIGEST"]
+        text = path.read_text()
+        new_text, n = re.subn(
+            rf"(  - name: {re.escape(image)}\n    digest: )sha256:[0-9a-f]+",
+            rf"\g<1>{digest}",
+            text,
+            count=1,
+        )
+        if n != 1:
+            # Append images block if missing
+            if "images:" not in text:
+                new_text = text.rstrip() + (
+                    f"\nimages:\n  - name: {image}\n    digest: {digest}\n"
+                )
+            else:
+                raise SystemExit(f"could not update digest for {image} in {path} (n={n})")
+        path.write_text(new_text)
+        print(path.read_text())
+        PY
+
+        git add "${FILE}"
+        if git diff --cached --quiet; then
+          echo "No gitops change (dev digest already current)"
+          exit 0
+        fi
+        git commit -m "ci: pin fxrate-dev to ${DIGEST}"
+        git push origin "HEAD:${PUSH_BRANCH}"
+        echo "Pushed dev overlay digest to ${PUSH_BRANCH}"

@@ -1,0 +1,122 @@
+# RHTAS operator + Securesign instance for demo cluster (parity with reference
+# openshift-gitops Application trusted-artifact-signer / path rhtas).
+# Apply after confirming packagemanifest rhtas-operator is available.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trusted-artifact-signer
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: rhtas-operator
+  namespace: openshift-operators
+spec:
+  channel: stable
+  name: rhtas-operator
+  source: redhat-operators-snapshot
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+---
+apiVersion: rhtas.redhat.com/v1alpha1
+kind: Securesign
+metadata:
+  name: securesign
+  namespace: trusted-artifact-signer
+spec:
+  ctlog:
+    replicas: 1
+    monitoring:
+      enabled: false
+  fulcio:
+    certificate:
+      commonName: fulcio.hostname
+      organizationEmail: admin@rhdemo.com
+      organizationName: fxrate
+    config:
+      OIDCIssuers:
+        - ClientID: trusted-artifact-signer
+          Issuer: https://sso.apps.<YOUR_CLUSTER_DOMAIN>/realms/sso
+          IssuerURL: https://sso.apps.<YOUR_CLUSTER_DOMAIN>/realms/sso
+          Type: email
+    ctlog:
+      port: 80
+      prefix: trusted-artifact-signer
+    externalAccess:
+      enabled: true
+    monitoring:
+      enabled: false
+    replicas: 1
+  rekor:
+    attestations:
+      enabled: true
+      maxSize: 100Ki
+      url: file:///var/run/attestations?no_tmp_dir=true
+    externalAccess:
+      enabled: true
+    monitoring:
+      enabled: false
+    pvc:
+      accessModes: [ReadWriteOnce]
+      retain: true
+      size: 5Gi
+    rekorSearchUI:
+      enabled: true
+      replicas: 1
+    replicas: 1
+    searchIndex:
+      create: true
+    signer:
+      kms: secret
+  trillian:
+    database:
+      create: true
+      pvc:
+        accessModes: [ReadWriteOnce]
+        retain: true
+        size: 5Gi
+    server:
+      replicas: 1
+    signer:
+      replicas: 1
+    monitoring:
+      enabled: false
+  tsa:
+    externalAccess:
+      enabled: true
+    monitoring:
+      enabled: false
+    ntpMonitoring:
+      enabled: true
+    replicas: 1
+    signer:
+      certificateChain:
+        intermediateCA:
+          - commonName: tsa.hostname
+            organizationEmail: admin@rhdemo.com
+            organizationName: fxrate
+        leafCA:
+          commonName: tsa.hostname
+          organizationEmail: admin@rhdemo.com
+          organizationName: fxrate
+        rootCA:
+          commonName: tsa.hostname
+          organizationEmail: admin@rhdemo.com
+          organizationName: fxrate
+  tuf:
+    externalAccess:
+      enabled: true
+    keys:
+      - name: rekor.pub
+      - name: ctfe.pub
+      - name: fulcio_v1.crt.pem
+      - name: tsa.certchain.pem
+    port: 80
+    pvc:
+      accessModes: [ReadWriteOnce]
+      retain: true
+      size: 100Mi
+    replicas: 1

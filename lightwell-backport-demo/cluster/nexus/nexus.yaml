@@ -1,0 +1,134 @@
+# Nexus Repository CE for the Python CVE upgrade demo (P0).
+# Image digest pinned from bastion pull of sonatype/nexus3:3.82.0-ubi (2026-09-30).
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nexus
+  namespace: nexus
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+    app.kubernetes.io/name: nexus
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nexus-data
+  namespace: nexus
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+    app.kubernetes.io/name: nexus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus
+  namespace: nexus
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+    app.kubernetes.io/name: nexus
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nexus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: fx-rate-demo
+        app.kubernetes.io/name: nexus
+    spec:
+      serviceAccountName: nexus
+      securityContext:
+        fsGroup: 200
+        runAsUser: 200
+        runAsNonRoot: true
+      containers:
+        - name: nexus
+          # Manifest digest from `podman image inspect … --format '{{.RepoDigests}}'` (not image Id)
+          image: docker.io/sonatype/nexus3@sha256:5266e8c9019c89759ca7575048ba7eb50efa0479ccd75dcbe4f208b0dfc68d98
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8081
+          env:
+            - name: INSTALL4J_ADD_VM_PARAMS
+              value: >-
+                -Xms1200m -Xmx1200m
+                -XX:MaxDirectMemorySize=2g
+                -Djava.util.prefs.userRoot=/nexus-data/javaprefs
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              path: /service/rest/v1/status
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /service/rest/v1/status
+              port: http
+            initialDelaySeconds: 180
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 10
+          volumeMounts:
+            - name: nexus-data
+              mountPath: /nexus-data
+      volumes:
+        - name: nexus-data
+          persistentVolumeClaim:
+            claimName: nexus-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus
+  namespace: nexus
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+    app.kubernetes.io/name: nexus
+spec:
+  selector:
+    app.kubernetes.io/name: nexus
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nexus
+  namespace: nexus
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+    app.kubernetes.io/name: nexus
+spec:
+  host: nexus.apps.<YOUR_CLUSTER_DOMAIN>
+  to:
+    kind: Service
+    name: nexus
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

@@ -1,0 +1,22 @@
+# Auto-syncs the dev overlay from the lab GitLab mirror of this workspace.
+# Later: re-point repoURL at public GitHub when published.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fx-rate-dev
+  namespace: openshift-gitops
+spec:
+  project: default
+  source:
+    repoURL: https://gitlab-gitlab.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/python-cve-upgrade-demo.git
+    targetRevision: HEAD
+    path: fx-rate-gitops/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: fxrate-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

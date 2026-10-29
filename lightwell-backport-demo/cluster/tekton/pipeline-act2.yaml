@@ -1,0 +1,165 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: fx-rate-act2
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Act 2 Trusted-Pipeline-shaped flow (P0): clone → pytest/pip-audit →
+    buildah (Containerfile.act2) → cosign sign+SPDX SBOM →
+    GitOps digest pin → ACS image scan (AC-2.5 baseline).
+  params:
+    - name: git-url
+      type: string
+      default: https://gitlab-gitlab.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/python-cve-upgrade-demo.git
+    - name: git-revision
+      type: string
+      default: main
+    - name: image
+      type: string
+      default: quay.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/fx-rate-service
+    - name: image-tag
+      type: string
+      default: 2.0.0-act2
+    - name: dockerfile
+      type: string
+      default: fx-rate-service/Containerfile.act2
+    - name: context
+      type: string
+      default: fx-rate-service
+    - name: pip-index-url
+      type: string
+      default: https://nexus.apps.<YOUR_CLUSTER_DOMAIN>/repository/pypi-proxy-pypi/simple
+    - name: act2-base
+      type: string
+      default: docker.io/library/python@sha256:44ff437bba879d4941b710a369a8f19266aea34b29002807f0c487fabc9eec9b
+    - name: acs-fail-on-policy
+      type: string
+      default: "false"
+  workspaces:
+    - name: source
+    - name: basic-auth
+    - name: dockerconfig
+    - name: acs-token
+    - name: cosign-key
+  tasks:
+    - name: clone-source
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: URL
+          value: $(params.git-url)
+        - name: REVISION
+          value: $(params.git-revision)
+        - name: SSL_VERIFY
+          value: "false"
+      workspaces:
+        - name: output
+          workspace: source
+        - name: basic-auth
+          workspace: basic-auth
+
+    - name: test
+      runAfter: [clone-source]
+      taskRef:
+        name: pytest-pip-audit
+      params:
+        - name: CONTEXT
+          value: $(params.context)
+        - name: PIP_INDEX_URL
+          value: $(params.pip-index-url)
+        - name: PYTHON_IMAGE
+          value: $(params.act2-base)
+      workspaces:
+        - name: source
+          workspace: source
+
+    - name: build-and-push
+      runAfter: [test]
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: IMAGE
+          value: $(params.image):$(params.image-tag)
+        - name: DOCKERFILE
+          value: $(params.dockerfile)
+        - name: CONTEXT
+          value: $(params.context)
+        - name: TLS_VERIFY
+          value: "false"
+        - name: STORAGE_DRIVER
+          value: vfs
+        - name: BUILD_ARGS
+          value:
+            - ACT2_BASE=$(params.act2-base)
+            - PIP_INDEX_URL=$(params.pip-index-url)
+      workspaces:
+        - name: source
+          workspace: source
+        - name: dockerconfig
+          workspace: dockerconfig
+
+    - name: sign-sbom
+      runAfter: [build-and-push]
+      taskRef:
+        name: cosign-sign-sbom
+      params:
+        - name: IMAGE
+          value: $(params.image)
+        - name: IMAGE_DIGEST
+          value: $(tasks.build-and-push.results.IMAGE_DIGEST)
+      workspaces:
+        - name: dockerconfig
+          workspace: dockerconfig
+        - name: cosign-key
+          workspace: cosign-key
+
+    - name: update-gitops
+      runAfter: [sign-sbom]
+      taskRef:
+        name: update-gitops-digest
+      params:
+        - name: IMAGE
+          value: $(params.image)
+        - name: IMAGE_DIGEST
+          value: $(tasks.build-and-push.results.IMAGE_DIGEST)
+        - name: GIT_URL
+          value: $(params.git-url)
+        - name: GIT_REVISION
+          value: $(params.git-revision)
+      workspaces:
+        - name: basic-auth
+          workspace: basic-auth
+
+    # After GitOps pin, Sensor sees the image on-cluster; ACS inventory scan is reliable.
+    # Direct roxctl image scan is flaky on this lab (dial [::1]:8443).
+    - name: acs-scan
+      runAfter: [update-gitops]
+      taskRef:
+        name: acs-image-scan
+      params:
+        - name: IMAGE
+          value: $(params.image)
+        - name: IMAGE_DIGEST
+          value: $(tasks.build-and-push.results.IMAGE_DIGEST)
+        - name: FAIL_ON_POLICY_VIOLATIONS
+          value: $(params.acs-fail-on-policy)
+      workspaces:
+        - name: acs-token
+          workspace: acs-token

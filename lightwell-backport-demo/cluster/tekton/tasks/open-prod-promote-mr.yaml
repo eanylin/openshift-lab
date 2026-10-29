@@ -1,0 +1,113 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: open-prod-promote-mr
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    After Conforma validates an image, open a GitLab MR that pins the prod
+    overlay digest (parasol update-prod-manifest pattern). Merge = promote.
+  params:
+    - name: IMAGE
+      description: Image repo without tag/digest
+    - name: IMAGE_DIGEST
+      description: sha256:... to promote
+    - name: IMAGE_TAG
+      description: Human tag for branch/MR title (e.g. 3.0.0-act3b)
+      default: 3.0.0-act3b
+    - name: GIT_URL
+      default: https://gitlab-gitlab.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/python-cve-upgrade-demo.git
+    - name: GITLAB_HOST
+      default: gitlab-gitlab.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: GITLAB_PROJECT
+      default: fxrate/python-cve-upgrade-demo
+    - name: KUSTOMIZATION_FILE
+      default: fx-rate-gitops/overlays/prod/kustomization.yaml
+  workspaces:
+    - name: basic-auth
+  steps:
+    - name: open-mr
+      image: alpine/git:2.47.1
+      env:
+        - name: HOME
+          value: /tekton/home
+      script: |
+        #!/usr/bin/env sh
+        set -eu
+        apk add --no-cache python3 curl >/dev/null
+        DIGEST="$(params.IMAGE_DIGEST)"
+        IMAGE="$(params.IMAGE)"
+        TAG="$(params.IMAGE_TAG)"
+        FILE="$(params.KUSTOMIZATION_FILE)"
+        case "$DIGEST" in
+          sha256:*) ;;
+          *) DIGEST="sha256:${DIGEST}" ;;
+        esac
+        SHORT="$(echo "${DIGEST#sha256:}" | cut -c1-12)"
+        BRANCH="promote-${TAG}-${SHORT}"
+
+        cp "$(workspaces.basic-auth.path)/.git-credentials" "${HOME}/.git-credentials"
+        cp "$(workspaces.basic-auth.path)/.gitconfig" "${HOME}/.gitconfig" 2>/dev/null || true
+        git config --global credential.helper store
+        git config --global --add safe.directory '*'
+        git config --global user.email "fxrate-pipeline@rhdemo.com"
+        git config --global user.name "fxrate-ci pipeline"
+
+        TOKEN="$(sed -n 's|https://oauth2:\([^@]*\)@.*|\1|p' "${HOME}/.git-credentials" | head -1)"
+        [ -n "$TOKEN" ] || { echo "could not parse GitLab token from basic-auth" >&2; exit 1; }
+
+        WORK=/tmp/fxrate-promote
+        rm -rf "${WORK}"
+        git clone --depth=1 "$(params.GIT_URL)" "${WORK}"
+        cd "${WORK}"
+        git checkout -b "${BRANCH}"
+
+        IMAGE="$IMAGE" DIGEST="$DIGEST" TAG="$TAG" FILE="$FILE" python3 - <<'PY'
+        import os, pathlib, re
+        path = pathlib.Path(os.environ["FILE"])
+        image, digest, tag = os.environ["IMAGE"], os.environ["DIGEST"], os.environ["TAG"]
+        text = path.read_text()
+        new_text, n = re.subn(
+            rf"(  - name: {re.escape(image)}\n    digest: )sha256:[0-9a-f]+",
+            rf"\g<1>{digest}",
+            text,
+            count=1,
+        )
+        if n != 1:
+            if "images:" not in text:
+                new_text = text.rstrip() + (
+                    f"\nimages:\n  - name: {image}\n    digest: {digest}\n"
+                )
+            else:
+                raise SystemExit(f"could not update prod digest (n={n})")
+        new_text, _ = re.subn(
+            r"(demo\.fxrate\.image:\s*)\S+",
+            rf"\g<1>{tag}",
+            new_text,
+            count=1,
+        )
+        path.write_text(new_text)
+        print(path.read_text())
+        PY
+
+        git add "${FILE}"
+        if git diff --cached --quiet; then
+          echo "Prod overlay already at ${DIGEST} — no MR needed"
+          exit 0
+        fi
+        git commit -m "chore: promote ${TAG} (${DIGEST}) to fxrate-prod"
+        git push -u origin "HEAD:${BRANCH}"
+
+        PROJECT_ENC="$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$(params.GITLAB_PROJECT)")"
+        API="https://$(params.GITLAB_HOST)/api/v4/projects/${PROJECT_ENC}/merge_requests"
+        RESP="$(curl -sk --fail \
+          --header "PRIVATE-TOKEN: ${TOKEN}" \
+          --data-urlencode "source_branch=${BRANCH}" \
+          --data-urlencode "target_branch=main" \
+          --data-urlencode "title=Promote ${TAG} to production" \
+          --data-urlencode "description=Validated image \`${IMAGE}@${DIGEST}\` (Conforma/Chains). Merge to roll out \`fxrate-prod\` via Argo auto-sync." \
+          --data-urlencode "remove_source_branch=true" \
+          "${API}")"
+        echo "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("MR:", d.get("web_url") or d)'

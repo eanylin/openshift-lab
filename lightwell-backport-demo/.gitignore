@@ -1,0 +1,22 @@
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+.mypy_cache/
+digests.env
+**/digests.env
+cluster/lab.env
+*.egg-info/
+dist/
+build/
+.DS_Store
+**/.DS_Store
+*.swp
+*~
+
+# macOS AppleDouble junk from tar/scp
+._*
+**/._*

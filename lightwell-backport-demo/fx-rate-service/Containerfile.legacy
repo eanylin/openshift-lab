@@ -1,0 +1,49 @@
+# LEGACY — do not copy. Act 0 historical image (spec FR-041).
+# Built outside the Trusted Pipeline to represent an inherited 2023-era artifact.
+
+# python:3.9-slim RepoDigest (bastion pull 2026-10-01)
+ARG LEGACY_BASE=docker.io/library/python@sha256:2d97f6910b16bd338d3060f261f53f144965f755599aab1acda1e13cf1731b1b
+
+FROM ${LEGACY_BASE}
+WORKDIR /opt/app
+
+# OpenShift restricted / runAsNonRoot
+RUN useradd --uid 1001 --gid 0 --create-home --home-dir /opt/app appuser \
+    && chown -R 1001:0 /opt/app \
+    && chmod -R g=u /opt/app
+
+COPY legacy/constraints-2023.txt /tmp/constraints.txt
+COPY legacy/fxrate_legacy.py /opt/app/fxrate.py
+COPY demo_ui.html /opt/app/demo_ui.html
+
+# Pin the full L0 set (spec §4.1). Index URL overridden at build time when Nexus is available.
+ARG PIP_INDEX_URL=https://pypi.org/simple
+RUN pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" \
+      -c /tmp/constraints.txt \
+      flask==2.2.2 requests==2.28.2 gunicorn==20.1.0 \
+      werkzeug==2.2.2 jinja2==3.1.2 click==8.1.3 \
+      urllib3==1.26.14 certifi==2022.12.7 idna==3.4 \
+      markupsafe==2.1.1 itsdangerous==2.1.2 charset-normalizer==3.0.1 \
+    && rm -f /tmp/constraints.txt
+
+ENV PYTHONUNBUFFERED=1
+USER 1001
+EXPOSE 8080
+
+# ExploitIQ (SPDX upload path) re-syfts the OCI component and requires these labels
+# or it fails with "SBOM is missing source code URL and commit ID labels" → No components analyzed.
+ARG GIT_URL=https://gitlab-gitlab.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/python-cve-upgrade-demo.git
+ARG GIT_REVISION=main
+LABEL \
+  demo.fxrate.act="0" \
+  demo.fxrate.legacy="true" \
+  org.opencontainers.image.version="1.0.0-legacy" \
+  org.opencontainers.image.description="LEGACY — do not copy. Act 0 inherited vulnerable FX rate service." \
+  org.opencontainers.image.source="${GIT_URL}" \
+  org.opencontainers.image.url="${GIT_URL}" \
+  org.opencontainers.image.revision="${GIT_REVISION}" \
+  vcs-type="git" \
+  vcs-ref="${GIT_REVISION}"
+
+# Shell form acceptable only on legacy image (has a shell); Act 3+ forbids this.
+CMD gunicorn -b 0.0.0.0:8080 fxrate:app

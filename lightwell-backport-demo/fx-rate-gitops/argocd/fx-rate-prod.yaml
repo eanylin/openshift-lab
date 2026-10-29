@@ -1,0 +1,22 @@
+# Prod syncs from Git after a promote MR merges (FSI/gov: Git is the change record).
+# Pipeline never pushes straight to main for prod — see open-prod-promote-mr.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fx-rate-prod
+  namespace: openshift-gitops
+spec:
+  project: default
+  source:
+    repoURL: https://gitlab-gitlab.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/python-cve-upgrade-demo.git
+    targetRevision: HEAD
+    path: fx-rate-gitops/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: fxrate-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

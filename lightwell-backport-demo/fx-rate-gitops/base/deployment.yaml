@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fx-rate-service
+  labels:
+    app.kubernetes.io/name: fx-rate-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fx-rate-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fx-rate-service
+    spec:
+      containers:
+        - name: fx-rate-service
+          image: quay.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/fx-rate-service:overlay-pin
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          env:
+            - name: PYTHONWARNINGS
+              value: default
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fx-rate-service
+  labels:
+    app.kubernetes.io/name: fx-rate-service
+spec:
+  selector:
+    app.kubernetes.io/name: fx-rate-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

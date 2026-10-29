@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FX Rate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg0: #0f1c18;
+      --bg1: #1a332c;
+      --ink: #e8f2ee;
+      --muted: #9bb5ab;
+      --accent: #3dcd87;
+      --accent-dim: #2a9a64;
+      --panel: rgba(232, 242, 238, 0.06);
+      --line: rgba(232, 242, 238, 0.14);
+      --warn: #f0c36a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #245647 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #1e3a55 0%, transparent 50%),
+        linear-gradient(160deg, var(--bg0), var(--bg1) 55%, #12241f);
+    }
+    main {
+      width: min(640px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 3.5rem 0 4rem;
+    }
+    .brand {
+      font-size: clamp(2.4rem, 7vw, 3.4rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin: 0 0 0.5rem;
+    }
+    .brand span { color: var(--accent); }
+    .lede {
+      margin: 0 0 2rem;
+      color: var(--muted);
+      font-size: 1.05rem;
+      max-width: 36ch;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.25rem 1.35rem 1.4rem;
+      backdrop-filter: blur(8px);
+    }
+    label {
+      display: block;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr auto;
+      gap: 0.75rem;
+      align-items: end;
+    }
+    @media (max-width: 560px) {
+      .row { grid-template-columns: 1fr; }
+    }
+    input, select, button {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--ink);
+      padding: 0.7rem 0.85rem;
+      width: 100%;
+    }
+    input:focus, select:focus {
+      outline: 2px solid var(--accent-dim);
+      outline-offset: 1px;
+    }
+    button {
+      background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+      color: #062015;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+    button:hover { filter: brightness(1.05); transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    .result {
+      margin-top: 1.1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 1.35rem;
+      min-height: 2rem;
+    }
+    .result .muted { color: var(--muted); font-size: 0.85rem; display: block; margin-bottom: 0.25rem; font-family: "DM Sans", sans-serif; }
+    .meta {
+      margin-top: 1.5rem;
+      display: grid;
+      gap: 0.75rem;
+    }
+    .meta details {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+    }
+    .meta summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .meta pre {
+      margin: 0.75rem 0 0;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      color: var(--ink);
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-top: 1.75rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .dot {
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 0 rgba(61, 205, 135, 0.5);
+      animation: pulse 1.8s ease-out infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(61, 205, 135, 0.45); }
+      70% { box-shadow: 0 0 0 10px rgba(61, 205, 135, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(61, 205, 135, 0); }
+    }
+    .err { color: var(--warn); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 class="brand">FX <span>Rate</span></h1>
+    <p class="lede">Live currency quotes for the Python CVE upgrade demo. Convert a pair and confirm the service is serving traffic.</p>
+
+    <section class="panel" aria-label="FX converter">
+      <div class="row">
+        <div>
+          <label for="amount">Amount</label>
+          <input id="amount" type="number" min="0" step="any" value="100" />
+        </div>
+        <div>
+          <label for="pair">Pair</label>
+          <select id="pair">
+            <option value="usdsgd">USD → SGD</option>
+            <option value="eurusd">EUR → USD</option>
+          </select>
+        </div>
+        <div>
+          <label for="convert">&nbsp;</label>
+          <button type="button" id="convert">Convert</button>
+        </div>
+      </div>
+      <div class="result" id="result" aria-live="polite">
+        <span class="muted">Result</span>
+        —
+      </div>
+    </section>
+
+    <div class="meta">
+      <details>
+        <summary>Runtime package versions <span style="opacity:.7">(demo evidence)</span></summary>
+        <pre id="versions">Loading /versions …</pre>
+      </details>
+      <details>
+        <summary>API endpoints</summary>
+        <pre>/healthz
+/rate/&lt;pair&gt;
+/versions</pre>
+      </details>
+    </div>
+
+    <p class="status"><span class="dot" aria-hidden="true"></span><span id="alive">Checking service…</span></p>
+  </main>
+  <script>
+    async function checkAlive() {
+      const el = document.getElementById("alive");
+      try {
+        const r = await fetch("/healthz");
+        const j = await r.json();
+        el.textContent = r.ok && j.status === "ok"
+          ? "Service is alive"
+          : "Service responded unexpectedly";
+      } catch (e) {
+        el.textContent = "Service unreachable";
+        el.classList.add("err");
+      }
+    }
+
+    async function loadVersions() {
+      const el = document.getElementById("versions");
+      try {
+        const r = await fetch("/versions");
+        const j = await r.json();
+        el.textContent = JSON.stringify(j, null, 2);
+      } catch (e) {
+        el.textContent = "Could not load /versions";
+        el.classList.add("err");
+      }
+    }
+
+    async function convert() {
+      const amount = Number(document.getElementById("amount").value || 0);
+      const pair = document.getElementById("pair").value;
+      const out = document.getElementById("result");
+      out.innerHTML = '<span class="muted">Result</span>…';
+      try {
+        const r = await fetch("/rate/" + pair);
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || "request failed");
+        const rate = Number(j.rate);
+        const converted = (amount * rate).toFixed(4);
+        const label = pair.slice(0, 3).toUpperCase() + " → " + pair.slice(3).toUpperCase();
+        out.innerHTML =
+          '<span class="muted">Result</span>' +
+          amount + " → <strong>" + converted + "</strong> " +
+          "<span style='color:var(--muted);font-size:.9rem'>(" + label + " @ " + j.rate + ")</span>";
+      } catch (e) {
+        out.innerHTML = '<span class="muted">Result</span><span class="err">' + e.message + "</span>";
+      }
+    }
+
+    document.getElementById("convert").addEventListener("click", convert);
+    document.getElementById("amount").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") convert();
+    });
+    checkAlive();
+    loadVersions();
+    convert();
+  </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: fx-rate-legacy-optb-
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+    demo.fxrate.act: "0"
+    demo.fxrate.exploitiq: "optB"
+spec:
+  serviceAccountName: pipeline
+  pipelineRef:
+    name: fx-rate-legacy-exploitiq
+  params:
+    - name: git-revision
+      value: main
+    - name: image-tag
+      value: 1.0.0-legacy
+    - name: label-git-revision
+      value: exploitiq-optB
+    - name: tpa-stage
+      value: legacy-optB
+    - name: tpa-component
+      value: fx-rate-service-legacy-optB
+  workspaces:
+    - name: source
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+    - name: basic-auth
+      secret:
+        secretName: gitlab-basic-auth
+    - name: dockerconfig
+      secret:
+        secretName: quay-push-secret

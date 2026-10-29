@@ -1,0 +1,38 @@
+# Lab mock Lightwell backport lock (hashed). NOT product content.
+# urllib3, jinja2, flask, gunicorn, and requests are backported (+rhlw-0001)
+# — driven by ExploitIQ Vulnerable findings (7 of 7 Vulnerable CVEs covered).
+# All other packages stay at their original upstream versions.
+# See cluster/docs/LIGHTWELL-MOCK.md
+#
+#    bash cluster/nexus/mock-lightwell/populate-mock-lightwell.sh
+#
+# --- Backported by Lightwell (ExploitIQ Vulnerable) ---
+urllib3==1.26.14+rhlw-0001 \
+    --hash=sha256:96c4af6fdc9b87d8a60031646edae6c507b170a31059c89c8c35a770d3b17560
+jinja2==3.1.2+rhlw-0001 \
+    --hash=sha256:9377d1fd6db31e84a33d1476ca63f36a5d2d61a43a457faa18d05b29eb420768
+flask==2.2.2+rhlw-0001 \
+    --hash=sha256:39dabe39ccec4627599adebc689d6d4c31dced70ec2f997e3c5c489568bb1d70
+gunicorn==20.1.0+rhlw-0001 \
+    --hash=sha256:0dc0a92d0c66ba99f49b8b2ec8e728f84116901086a59e530c7bb622db939113
+requests==2.28.2+rhlw-0001 \
+    --hash=sha256:1cd003d76cbf1721170a1f41a1a186c6ead8775c95c7a5a5a459b91343b0bf83
+#
+# --- Passthrough (original versions, no backport) ---
+certifi==2022.12.7 \
+    --hash=sha256:4ad3232f5e926d6718ec31cfc1fcadfde020920e278684144551c91769c7bc18
+charset-normalizer==3.0.1 \
+    --hash=sha256:7e189e2e1d3ed2f4aebabd2d5b0f931e883676e51c7624826e0a4e5fe8a0bf24
+click==8.1.3 \
+    --hash=sha256:bb4d8133cb15a609f44e8213d9b391b0809795062913b383c62be0ee95b1db48
+idna==3.4 \
+    --hash=sha256:90b77e79eaa3eba6de819a0c442c0b4ceefc341a7a2ab77d7562bf49f425c5c2
+itsdangerous==2.1.2 \
+    --hash=sha256:2c2349112351b88699d8d4b6b075022c0808887cb7ad10069318a8b0bc88db44
+markupsafe==2.1.5 \
+    --hash=sha256:f5dfb42c4604dddc8e4305050aa6deb084540643ed5804d7455b5df8fe16f5e5
+# gunicorn 20.1.0 imports pkg_resources; need setuptools >=67.6 for Python 3.12
+setuptools==69.5.1 \
+    --hash=sha256:c636ac361bc47580504644275c9ad802c50415c7522212252c033bd15f301f32
+werkzeug==2.2.2 \
+    --hash=sha256:f979ab81f58d7318e064e99c4506445d60135ac5cd2e177a2de0089bfd4c9bd5

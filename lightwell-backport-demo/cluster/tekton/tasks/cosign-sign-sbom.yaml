@@ -1,0 +1,117 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: cosign-sign-sbom
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Generate an SPDX SBOM with syft, then cosign-sign the image and attach
+    the SBOM as a cosign SPDX attestation (AC-4.1 / FR-020). Writes .sig/.att
+    to the same Quay repo as the image. Uses ubi-minimal + released binaries
+    (cosign image is distroless / no shell).
+  params:
+    - name: IMAGE
+      description: Image repo without digest (quay.../fxrate/fx-rate-service)
+    - name: IMAGE_DIGEST
+      description: sha256:... from buildah
+    - name: COSIGN_VERSION
+      default: "v2.4.1"
+    - name: SYFT_VERSION
+      default: "v1.18.1"
+  results:
+    - name: IMAGE_REF
+      description: Full image@digest that was signed
+    - name: SBOM_PACKAGE_COUNT
+      description: Number of SPDX Package elements
+  workspaces:
+    - name: dockerconfig
+      description: Quay push credentials (.dockerconfigjson) for cosign/syft
+    - name: cosign-key
+      description: Files cosign.key, cosign.password, cosign.pub
+    - name: report
+      description: Optional volume to keep SBOM JSON
+      optional: true
+  steps:
+    - name: sign-sbom
+      image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+      env:
+        - name: IMAGE
+          value: $(params.IMAGE)
+        - name: DIGEST
+          value: $(params.IMAGE_DIGEST)
+        - name: COSIGN_VERSION
+          value: $(params.COSIGN_VERSION)
+        - name: SYFT_VERSION
+          value: $(params.SYFT_VERSION)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        case "${DIGEST}" in
+          sha256:*) ;;
+          *) DIGEST="sha256:${DIGEST}" ;;
+        esac
+        REF="${IMAGE}@${DIGEST}"
+        printf '%s' "${REF}" > "$(results.IMAGE_REF.path)"
+
+        microdnf -y install ca-certificates tar gzip jq >/dev/null
+
+        mkdir -p /tekton/home/.docker /tmp/bin
+        if [[ -f "$(workspaces.dockerconfig.path)/config.json" ]]; then
+          cp "$(workspaces.dockerconfig.path)/config.json" /tekton/home/.docker/config.json
+        elif [[ -f "$(workspaces.dockerconfig.path)/.dockerconfigjson" ]]; then
+          cp "$(workspaces.dockerconfig.path)/.dockerconfigjson" /tekton/home/.docker/config.json
+        else
+          echo "dockerconfig missing" >&2
+          exit 1
+        fi
+        export DOCKER_CONFIG=/tekton/home/.docker
+
+        KEY="$(workspaces.cosign-key.path)/cosign.key"
+        PW_FILE="$(workspaces.cosign-key.path)/cosign.password"
+        PUB="$(workspaces.cosign-key.path)/cosign.pub"
+        [[ -s "${KEY}" ]] || { echo "cosign.key missing" >&2; exit 1; }
+        if [[ -s "${PW_FILE}" ]]; then
+          export COSIGN_PASSWORD
+          COSIGN_PASSWORD="$(tr -d '\n' < "${PW_FILE}")"
+        fi
+
+        echo "Fetching cosign ${COSIGN_VERSION} + syft ${SYFT_VERSION}"
+        curl -fsSL -o /tmp/bin/cosign \
+          "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+        chmod +x /tmp/bin/cosign
+        curl -fsSL -o /tmp/syft.tgz \
+          "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/syft_${SYFT_VERSION#v}_linux_amd64.tar.gz"
+        tar -xzf /tmp/syft.tgz -C /tmp/bin syft
+        chmod +x /tmp/bin/syft
+        export PATH="/tmp/bin:${PATH}"
+        cosign version
+        syft version
+
+        echo "Generating SPDX SBOM for ${REF}"
+        syft "${REF}" -o spdx-json=/tmp/sbom.spdx.json
+        pkgs="$(jq '[.packages[]? | select(.SPDXID | startswith("SPDXRef-Package"))] | length' /tmp/sbom.spdx.json)"
+        printf '%s' "${pkgs}" > "$(results.SBOM_PACKAGE_COUNT.path)"
+        echo "SBOM packages=${pkgs}"
+        if [[ "$(workspaces.report.bound)" == "true" ]]; then
+          mkdir -p "$(workspaces.report.path)/sbom"
+          cp /tmp/sbom.spdx.json \
+            "$(workspaces.report.path)/sbom/sbom-${DIGEST#sha256:}.spdx.json"
+        fi
+
+        echo "cosign sign ${REF}"
+        cosign sign --yes --key "${KEY}" --allow-insecure-registry "${REF}"
+
+        echo "cosign attest SPDX ${REF}"
+        cosign attest --yes --key "${KEY}" --allow-insecure-registry \
+          --type spdxjson --predicate /tmp/sbom.spdx.json "${REF}"
+
+        if [[ -s "${PUB}" ]]; then
+          echo "Verify signature + SPDX attestation"
+          cosign verify --key "${PUB}" --allow-insecure-registry "${REF}"
+          cosign verify-attestation --key "${PUB}" --allow-insecure-registry \
+            --type spdxjson "${REF}" >/tmp/att.json
+          echo "verify-attestation OK ($(wc -c </tmp/att.json) bytes)"
+        fi
+        echo "cosign sign + SPDX attest OK for ${REF}"

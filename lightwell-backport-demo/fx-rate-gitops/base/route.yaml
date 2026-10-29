@@ -1,0 +1,15 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: fx-rate-service
+  labels:
+    app.kubernetes.io/name: fx-rate-service
+spec:
+  to:
+    kind: Service
+    name: fx-rate-service
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

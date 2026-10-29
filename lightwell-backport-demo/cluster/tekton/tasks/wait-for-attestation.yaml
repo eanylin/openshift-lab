@@ -1,0 +1,64 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: wait-for-attestation
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Wait for Tekton Chains (+ TAS Rekor) PipelineRun attestation on an image
+    (parasol wait-for-attestation-secured).
+  params:
+    - name: IMAGE
+      description: Full image@sha256:digest
+    - name: CLI_SERVER
+      default: https://cli-server-trusted-artifact-signer.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: TUF_URL
+      default: https://tuf-trusted-artifact-signer.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: REKOR_URL
+      default: https://rekor-server-trusted-artifact-signer.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: TIMEOUT
+      default: "600"
+    - name: INTERVAL
+      default: "15"
+  workspaces:
+    - name: cosign-key
+      description: Secret with cosign.pub (Chains signing pubkey)
+  steps:
+    - name: wait
+      image: registry.access.redhat.com/ubi9-minimal:latest
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        unset SSL_CERT_DIR
+        microdnf install -y gzip ca-certificates --nodocs && microdnf clean all
+
+        echo "Installing cosign from TAS cli-server..."
+        curl -sL "$(params.CLI_SERVER)/clients/linux/cosign-amd64.gz" | gunzip > /tmp/cosign
+        chmod +x /tmp/cosign
+
+        echo "Initializing TUF root..."
+        export TUF_ROOT=/tmp/tuf
+        /tmp/cosign initialize --mirror="$(params.TUF_URL)" --root="$(params.TUF_URL)/root.json"
+
+        PUB="$(workspaces.cosign-key.path)/cosign.pub"
+        [[ -f "${PUB}" ]] || { echo "cosign.pub missing" >&2; exit 1; }
+
+        echo "Waiting for slsaprovenance attestation on $(params.IMAGE)..."
+        ELAPSED=0
+        while [ "${ELAPSED}" -lt "$(params.TIMEOUT)" ]; do
+          if /tmp/cosign verify-attestation \
+            --key "${PUB}" \
+            --rekor-url "$(params.REKOR_URL)" \
+            --type slsaprovenance \
+            "$(params.IMAGE)" >/dev/null 2>&1; then
+            echo "Attestation found after ${ELAPSED}s"
+            exit 0
+          fi
+          echo "No attestation yet (${ELAPSED}s); retry in $(params.INTERVAL)s..."
+          sleep "$(params.INTERVAL)"
+          ELAPSED=$((ELAPSED + $(params.INTERVAL)))
+        done
+        echo "Timed out waiting for attestation after $(params.TIMEOUT)s" >&2
+        exit 1

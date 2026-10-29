@@ -1,0 +1,48 @@
+schemaVersion: 2.2.0
+metadata:
+  name: python-cve-upgrade-demo
+  version: 1.0.0
+  displayName: Python CVE Upgrade Demo
+  description: >
+    Open in OpenShift Dev Spaces, edit the fx-rate service, push to GitLab main,
+    and Tekton Triggers runs the Act 3b Trusted Pipeline.
+  tags:
+    - python
+    - openshift
+    - tekton
+    - demo
+  projectType: Python
+components:
+  - name: tools
+    container:
+      # Universal developer image works well in Dev Spaces for git + python edits.
+      image: quay.io/devfile/universal-developer-image:ubi9-latest
+      memoryLimit: 3Gi
+      memoryRequest: 1Gi
+      cpuLimit: "2"
+      cpuRequest: 200m
+      mountSources: true
+      env:
+        - name: PIP_DISABLE_PIP_VERSION_CHECK
+          value: "1"
+commands:
+  - id: pytest
+    exec:
+      component: tools
+      workingDir: ${PROJECT_SOURCE}/fx-rate-service
+      commandLine: |
+        python3 -m pip install -q -r requirements-dev.txt &&
+        python3 -m pytest -W error::DeprecationWarning -q
+      group:
+        kind: test
+        isDefault: true
+  - id: show-trigger-hint
+    exec:
+      component: tools
+      workingDir: ${PROJECT_SOURCE}
+      commandLine: |
+        echo "Push to GitLab main to trigger fx-rate-act3b via webhook."
+        echo "Listener docs: cluster/docs/DEVSPACES.md"
+events:
+  postStart:
+    - show-trigger-hint

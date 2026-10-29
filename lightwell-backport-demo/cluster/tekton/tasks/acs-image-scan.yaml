@@ -1,0 +1,161 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: acs-image-scan
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Capture RHACS scan results for the just-built image (AC-2.5 slim baseline).
+    Prefers roxctl image scan; on Central scanner flakiness falls back to
+    GET /v1/images/{digest}. Act 2 keeps FAIL_ON_POLICY_VIOLATIONS=false.
+  params:
+    - name: IMAGE
+      description: Image repo without digest (quay.../fxrate/fx-rate-service)
+    - name: IMAGE_DIGEST
+      description: sha256:... from buildah
+    - name: ROX_CENTRAL_ENDPOINT
+      default: central-rhacs-operator.apps.<YOUR_CLUSTER_DOMAIN>:443
+    - name: ROXCTL_VERSION
+      default: "4.11.4"
+    - name: FAIL_ON_POLICY_VIOLATIONS
+      description: If true, non-zero image check fails the TaskRun (Act 4). Act 2 keeps false.
+      default: "false"
+  results:
+    - name: SCAN_SUMMARY
+      description: One-line finding counts for AC-2.5 baseline
+    - name: IMAGE_REF
+      description: Full image@digest that was scanned
+  workspaces:
+    - name: acs-token
+      description: Secret with key "token" (RHACS API token)
+    - name: report
+      description: Optional volume to keep full scan JSON
+      optional: true
+  steps:
+    - name: scan
+      image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+      env:
+        - name: ROX_CENTRAL_ENDPOINT
+          value: $(params.ROX_CENTRAL_ENDPOINT)
+        - name: FAIL_ON_POLICY
+          value: $(params.FAIL_ON_POLICY_VIOLATIONS)
+        - name: IMAGE
+          value: $(params.IMAGE)
+        - name: DIGEST
+          value: $(params.IMAGE_DIGEST)
+        - name: ROXCTL_VERSION
+          value: $(params.ROXCTL_VERSION)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        # ubi-minimal ships curl-minimal; installing curl conflicts with it
+        microdnf -y install jq ca-certificates >/dev/null
+
+        TOKEN_FILE="$(workspaces.acs-token.path)/token"
+        if [[ ! -s "${TOKEN_FILE}" ]]; then
+          echo "ACS API token missing at ${TOKEN_FILE}" >&2
+          exit 1
+        fi
+        export ROX_API_TOKEN
+        ROX_API_TOKEN="$(tr -d '\n' < "${TOKEN_FILE}")"
+        export ROX_CENTRAL_ENDPOINT
+        export ROX_INSECURE_CLIENT=true
+
+        case "${DIGEST}" in
+          sha256:*) ;;
+          *) DIGEST="sha256:${DIGEST}" ;;
+        esac
+        REF="${IMAGE}@${DIGEST}"
+        printf '%s' "${REF}" > "$(results.IMAGE_REF.path)"
+        echo "Scanning ${REF}"
+
+        curl -fsSL -o /tmp/roxctl \
+          "https://mirror.openshift.com/pub/rhacs/assets/${ROXCTL_VERSION}/bin/Linux/roxctl"
+        chmod +x /tmp/roxctl
+
+        OUT=/tmp/acs-scan.json
+        HOST="${ROX_CENTRAL_ENDPOINT%:*}"
+
+        fetch_api() {
+          curl -sk -o "${OUT}" -w "%{http_code}" \
+            -H "Authorization: Bearer ${ROX_API_TOKEN}" \
+            "https://${HOST}/v1/images/${DIGEST}"
+        }
+        has_components() {
+          jq -e "(.scan.components // .image.scan.components // .components // []) | length > 0" "${OUT}" >/dev/null 2>&1
+        }
+
+        # 1) Try existing Central inventory
+        HTTP=$(fetch_api || echo 000)
+        echo "API fetch http=${HTTP}"
+
+        # 2) If empty, ask Central to scan via roxctl (may flake with ::1:8443 on this lab)
+        if ! has_components; then
+          echo "No scan yet — requesting via roxctl image scan..."
+          set +e
+          /tmp/roxctl image scan \
+            --image "${REF}" \
+            --output json \
+            --insecure-skip-tls-verify \
+            > /tmp/roxctl-scan.json
+          RC=$?
+          set -e
+          if [[ "${RC}" -eq 0 ]]; then
+            cp /tmp/roxctl-scan.json "${OUT}"
+          else
+            echo "roxctl scan returned ${RC}; polling Central inventory..."
+          fi
+        fi
+
+        # 3) Poll inventory (sensor/reprocessor may attach results after index)
+        for i in $(seq 1 24); do
+          if has_components; then
+            echo "Scan data available (attempt ${i})"
+            break
+          fi
+          echo "waiting for ACS components (${i}/24)..."
+          sleep 10
+          fetch_api >/dev/null || true
+        done
+
+        if [[ "$(workspaces.report.bound)" == "true" ]]; then
+          mkdir -p "$(workspaces.report.path)/acs"
+          cp "${OUT}" "$(workspaces.report.path)/acs/scan-${DIGEST#sha256:}.json"
+        fi
+
+        if ! has_components; then
+          echo "No ACS components found for ${REF} after wait" >&2
+          echo "Check Quay image integration + Scanner V4; Central may log dial [::1]:8443." >&2
+          jq -r ".notes // .error // ." "${OUT}" 2>/dev/null | head -20 >&2 || true
+          exit 1
+        fi
+
+        SUMMARY="$(jq -r '
+          ( .scan // .image.scan // . ) as $s
+          | ($s.components // .components // []) as $c
+          | ($c | length) as $n
+          | ($c | map(select(
+              ((.source // "") + (.location // "") + (.path // "") + (.name // ""))
+              | ascii_upcase
+              | test("PYTHON|VENV|SITE-PACKAGES")
+            )) | map((.vulnerabilities // .vulns // []) | length) | add // 0) as $py
+          | ($c | map((.vulnerabilities // .vulns // []) | length) | add // 0) as $all
+          | "components=\($n) pythonish_vulns=\($py) other_os_vulns=\($all - $py) scanTime=\($s.scanTime // "unknown")"
+        ' "${OUT}")"
+        echo "SUMMARY: ${SUMMARY}"
+        printf '%s' "${SUMMARY}" > "$(results.SCAN_SUMMARY.path)"
+
+        set +e
+        /tmp/roxctl image check \
+          --image "${REF}" \
+          --insecure-skip-tls-verify
+        RC=$?
+        set -e
+        if [[ "${FAIL_ON_POLICY}" == "true" && "${RC}" -ne 0 ]]; then
+          echo "image check failed (FAIL_ON_POLICY_VIOLATIONS=true)" >&2
+          exit "${RC}"
+        fi
+        echo "image check exit=${RC} (fail-on-policy=${FAIL_ON_POLICY})"
+        echo "ACS scan OK for AC-2.5 baseline capture"

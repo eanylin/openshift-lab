@@ -1,0 +1,7 @@
+# LEGACY — do not copy. Top-level pins only (constitution I / spec §4.2).
+# Used for Act 0/1 narrative and legacy-image builds.
+# Pin urllib3 with requests so ExploitIQ line-by-line uv install stays solvable.
+flask==2.2.2
+requests==2.28.2
+urllib3==1.26.14
+gunicorn==20.1.0

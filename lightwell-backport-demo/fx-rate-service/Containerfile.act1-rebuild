@@ -1,0 +1,16 @@
+# Act 1 — LEGACY narrative rebuild (spec §5.2).
+# Intentionally installs R0 top-level pins ONLY (no L0 constraints).
+# Expected: pip succeeds, importing flask fails (Werkzeug 3.x / url_quote).
+# Do not promote images from this Containerfile.
+
+ARG LEGACY_BASE=docker.io/library/python@sha256:2d97f6910b16bd338d3060f261f53f144965f755599aab1acda1e13cf1731b1b
+
+FROM ${LEGACY_BASE}
+WORKDIR /opt/app
+COPY legacy/requirements.txt /tmp/requirements.txt
+COPY legacy/fxrate_legacy.py /opt/app/fxrate.py
+COPY demo_ui.html /opt/app/demo_ui.html
+ARG PIP_INDEX_URL=https://pypi.org/simple
+RUN pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" -r /tmp/requirements.txt \
+ && python -c "import flask" \
+ || (echo "ACT1 EXPECTED FAILURE: flask import broke after R0 resolve (see Werkzeug major bump)" && exit 1)

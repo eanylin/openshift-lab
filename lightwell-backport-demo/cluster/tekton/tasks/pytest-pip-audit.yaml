@@ -1,0 +1,101 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: pytest-pip-audit
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: Install T1 hashed lock via Nexus, run pytest and pip-audit (Act 2+).
+  params:
+    - name: CONTEXT
+      description: Path under the source workspace to the app root
+      default: fx-rate-service
+    - name: PIP_INDEX_URL
+      # HTTPS route: pip refuses plain HTTP indexes unless --trusted-host is set.
+      default: https://nexus.apps.<YOUR_CLUSTER_DOMAIN>/repository/pypi-proxy-pypi/simple
+    - name: PIP_TRUSTED_HOST
+      default: nexus.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: PIP_TOOLING_INDEX_URL
+      description: >
+        Index for pytest/pip-audit only. Defaults to PIP_INDEX_URL. Use pypi-proxy-pypi
+        when the app lock comes from a narrow hosted mock (e.g. Lightwell pypi-hosted-rhlw).
+      default: ""
+    - name: LOCKFILE
+      description: Hashed lockfile under CONTEXT (T1/T2/rhlw)
+      default: requirements.txt
+    - name: PYTHON_IMAGE
+      default: docker.io/library/python@sha256:44ff437bba879d4941b710a369a8f19266aea34b29002807f0c487fabc9eec9b
+  workspaces:
+    - name: source
+  steps:
+    - name: test
+      image: $(params.PYTHON_IMAGE)
+      workingDir: $(workspaces.source.path)/$(params.CONTEXT)
+      env:
+        - name: PIP_INDEX_URL
+          value: $(params.PIP_INDEX_URL)
+        - name: PIP_TRUSTED_HOST
+          value: $(params.PIP_TRUSTED_HOST)
+        - name: PIP_TOOLING_INDEX_URL
+          value: $(params.PIP_TOOLING_INDEX_URL)
+        - name: LOCKFILE
+          value: $(params.LOCKFILE)
+        - name: PIP_DISABLE_PIP_VERSION_CHECK
+          value: "1"
+        # TL simple pages emit absolute packages.redhat.com URLs; Akamai can flake with errno 101.
+        - name: PIP_DEFAULT_TIMEOUT
+          value: "120"
+        - name: PIP_RETRIES
+          value: "15"
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        # RHHI builder ships python3 only; community slim has both.
+        if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
+        "$PY" -V
+        "$PY" -m venv /tmp/venv
+        # shellcheck disable=SC1091
+        source /tmp/venv/bin/activate
+        # Tooling via Nexus (EgressFirewall denies pypi.org). Advisory DB via OSV
+        # (api.osv.dev is allowed) — pip-audit's default PyPI service is blocked by V-08.
+        # Use a separate index when the app lock is a narrow hosted mock (Lightwell).
+        # Note: ${VAR:-default} does NOT treat empty string as unset — check -z explicitly.
+        PYPI_NEXUS="https://nexus.apps.<YOUR_CLUSTER_DOMAIN>/repository/pypi-proxy-pypi/simple"
+        if [[ -n "${PIP_TOOLING_INDEX_URL:-}" ]]; then
+          TOOLING_INDEX="${PIP_TOOLING_INDEX_URL}"
+        elif [[ "${PIP_INDEX_URL}" == *raw-proxy-rhtl* || "${PIP_INDEX_URL}" == *pypi-hosted-rhtl* || "${PIP_INDEX_URL}" == *pypi-hosted-rhlw* ]]; then
+          # Never upgrade pip / install pytest from TL or narrow hosted indexes.
+          TOOLING_INDEX="${PYPI_NEXUS}"
+        else
+          TOOLING_INDEX="${PIP_INDEX_URL}"
+        fi
+        echo "Upgrading pip from ${TOOLING_INDEX}"
+        pip install --upgrade pip --trusted-host "${PIP_TRUSTED_HOST}" --index-url "${TOOLING_INDEX}" \
+          --retries "${PIP_RETRIES:-15}" --timeout "${PIP_DEFAULT_TIMEOUT:-120}"
+        # Strip lockfile index line so task params control the mirror.
+        grep -vE '^(--index-url|--extra-index-url)' "${LOCKFILE}" > /tmp/reqs-no-index.txt
+        # TL index links are absolute CDN URLs; retries absorb intermittent errno 101.
+        pip install --trusted-host "${PIP_TRUSTED_HOST}" --index-url "${PIP_INDEX_URL}" \
+          --retries "${PIP_RETRIES:-15}" --timeout "${PIP_DEFAULT_TIMEOUT:-120}" \
+          --require-hashes --no-deps --only-binary=:all: \
+          -r /tmp/reqs-no-index.txt
+        echo "Installing pytest/pip-audit from ${TOOLING_INDEX}"
+        pip install --trusted-host "${PIP_TRUSTED_HOST}" --index-url "${TOOLING_INDEX}" \
+          --retries "${PIP_RETRIES:-15}" --timeout "${PIP_DEFAULT_TIMEOUT:-120}" \
+          pytest pip-audit
+        export PYTHONPATH="$(pwd)"
+        # Act 0 / Lightwell backport (werkzeug 2.2.x) on RHHI Python 3.12 emits
+        # DeprecationWarning (ast.Str). Do not treat that as failure for rhlw locks.
+        # pip-audit will also report Act 0 CVEs — expected: mock is naming only, not real patches.
+        if [[ "${LOCKFILE}" == *rhlw* ]]; then
+          pytest -o filterwarnings=default -W ignore::DeprecationWarning -q
+          set +e
+          pip-audit --local --vulnerability-service osv
+          echo "pip-audit findings expected for Act 0 +rhlw mock (naming only; not real Lightwell patches)"
+          set -e
+        else
+          pytest -W error::DeprecationWarning -q
+          pip-audit --local --vulnerability-service osv
+        fi
+        echo "pytest + pip-audit OK (lockfile=${LOCKFILE}; advisories=osv; tooling=${TOOLING_INDEX})"

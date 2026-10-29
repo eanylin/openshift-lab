@@ -1,0 +1,67 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: acs-image-check
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    RHACS build-time policy check (roxctl image check). Separate from acs-image-scan
+    so promote can gate on policy independently (parasol acs-image-check-secured).
+  params:
+    - name: IMAGE
+      description: Full image reference (repo:tag or repo@digest)
+    - name: ROX_CENTRAL_ENDPOINT
+      default: central-rhacs-operator.apps.<YOUR_CLUSTER_DOMAIN>:443
+    - name: ROXCTL_VERSION
+      default: "4.11.4"
+    - name: FAIL_ON_POLICY_VIOLATIONS
+      default: "true"
+    - name: INSECURE_SKIP_TLS_VERIFY
+      default: "true"
+  workspaces:
+    - name: acs-token
+      description: Secret with key "token"
+  steps:
+    - name: check
+      image: registry.access.redhat.com/ubi9-minimal:latest
+      env:
+        - name: ROX_CENTRAL_ENDPOINT
+          value: $(params.ROX_CENTRAL_ENDPOINT)
+        - name: FAIL_ON_POLICY
+          value: $(params.FAIL_ON_POLICY_VIOLATIONS)
+        - name: IMAGE
+          value: $(params.IMAGE)
+        - name: ROXCTL_VERSION
+          value: $(params.ROXCTL_VERSION)
+        - name: INSECURE
+          value: $(params.INSECURE_SKIP_TLS_VERIFY)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        microdnf -y install ca-certificates >/dev/null
+        TOKEN_FILE="$(workspaces.acs-token.path)/token"
+        export ROX_API_TOKEN
+        ROX_API_TOKEN="$(tr -d '\n' < "${TOKEN_FILE}")"
+        export ROX_INSECURE_CLIENT=true
+
+        curl -fsSL -o /tmp/roxctl \
+          "https://mirror.openshift.com/pub/rhacs/assets/${ROXCTL_VERSION}/bin/Linux/roxctl"
+        chmod +x /tmp/roxctl
+
+        set +e
+        /tmp/roxctl image check \
+          --image "${IMAGE}" \
+          --insecure-skip-tls-verify="${INSECURE}" \
+          -e "${ROX_CENTRAL_ENDPOINT}" \
+          --output json > /tmp/image-check.json
+        RC=$?
+        set -e
+        echo "==== ACS image check (exit=${RC}) ===="
+        head -c 4000 /tmp/image-check.json; echo
+        if [[ "${FAIL_ON_POLICY}" == "true" && "${RC}" -ne 0 ]]; then
+          echo "ACS image check failed (FAIL_ON_POLICY_VIOLATIONS=true)" >&2
+          exit "${RC}"
+        fi
+        echo "ACS image check OK (fail-on-policy=${FAIL_ON_POLICY})"

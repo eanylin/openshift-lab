@@ -1,0 +1,77 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: conforma-validate
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Validate image signature/attestation with Conforma (Enterprise Contract)
+    using the @minimal policy set (parasol conforma-validate-secured).
+  params:
+    - name: IMAGE
+    - name: CLI_SERVER
+      default: https://cli-server-trusted-artifact-signer.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: TUF_URL
+      default: https://tuf-trusted-artifact-signer.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: REKOR_URL
+      default: https://rekor-server-trusted-artifact-signer.apps.<YOUR_CLUSTER_DOMAIN>
+  results:
+    - name: CONFORMA_OUTPUT
+  workspaces:
+    - name: cosign-key
+  steps:
+    - name: validate
+      image: registry.access.redhat.com/ubi9-minimal:latest
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        unset SSL_CERT_DIR
+        microdnf install -y gzip ca-certificates --nodocs && microdnf clean all
+
+        curl -sL "$(params.CLI_SERVER)/clients/linux/cosign-amd64.gz" | gunzip > /tmp/cosign
+        chmod +x /tmp/cosign
+        # Key-based Conforma does not need TUF; TAS demo TUF roots can be expired.
+
+        curl -sL https://github.com/conforma/cli/releases/download/v0.8.123/ec_linux_amd64 -o /tmp/ec
+        chmod +x /tmp/ec
+
+        cat > /tmp/policy.yaml <<'POLICY'
+        sources:
+          - policy:
+              - "oci::quay.io/enterprise-contract/ec-release-policy:git-c4e8ea6f"
+            config:
+              include:
+                - "@minimal"
+              exclude:
+                - "base_image_registries.allowed_registries_provided"
+                - "base_image_registries.base_image_info_found"
+                - "cve.cve_results_found"
+                - "provenance_materials.git_clone_task_found"
+                - "sbom.found"
+                - "slsa_source_correlated.attested_source_code_reference"
+                - "slsa_source_correlated.source_code_reference_provided"
+                - "slsa_source_version_controlled.materials_format_okay"
+        POLICY
+
+        mkdir -p /tmp/ec-output
+        PUB="$(workspaces.cosign-key.path)/cosign.pub"
+        echo "Validating $(params.IMAGE)..."
+        set +e
+        /tmp/ec validate image \
+          --image "$(params.IMAGE)" \
+          --public-key "${PUB}" \
+          --policy /tmp/policy.yaml \
+          --ignore-rekor \
+          --output json=/tmp/ec-output/result.json \
+          --output text=/tmp/ec-output/result.txt \
+          --show-successes \
+          --info
+        RC=$?
+        set -e
+        cat /tmp/ec-output/result.txt || true
+        head -c 2000 /tmp/ec-output/result.txt > "$(results.CONFORMA_OUTPUT.path)" || \
+          printf 'conforma-rc=%s' "${RC}" > "$(results.CONFORMA_OUTPUT.path)"
+        [[ "${RC}" -eq 0 ]] || { echo "Conforma validation failed (rc=${RC})" >&2; exit "${RC}"; }
+        echo "Conforma validation passed"

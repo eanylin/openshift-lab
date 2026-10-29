@@ -1,0 +1,256 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: fx-rate-act3b
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Act 3b Trusted Pipeline (reference-aligned): RHHI + Trusted Libraries →
+    Sonar → buildah → cosign SPDX → ACS scan/check → CycloneDX → TPA upload →
+    GitOps pin → trigger Chains/TAS+Conforma validate PipelineRun.
+  params:
+    - name: git-url
+      type: string
+      default: https://gitlab-gitlab.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/python-cve-upgrade-demo.git
+    - name: git-revision
+      type: string
+      default: main
+    - name: image
+      type: string
+      default: quay.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/fx-rate-service
+    - name: image-tag
+      type: string
+      default: 3.0.0-act3b
+    - name: dockerfile
+      type: string
+      default: fx-rate-service/Containerfile.act3b
+    - name: context
+      type: string
+      default: fx-rate-service
+    - name: pip-index-url
+      type: string
+      # Hosted mirror of T2 TL wheels (relative URLs). Populate with:
+      #   bash cluster/nexus/hosted-rhtl/populate-hosted-rhtl.sh
+      # raw-proxy-rhtl remains the upstream source for that populate step.
+      default: https://nexus.apps.<YOUR_CLUSTER_DOMAIN>/repository/pypi-hosted-rhtl/simple
+    - name: pip-trusted-host
+      type: string
+      default: nexus.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: lockfile
+      type: string
+      default: requirements-t2.txt
+    - name: rhhi-builder
+      type: string
+      default: registry.access.redhat.com/hi/python@sha256:95e23e434d7c047ab9bc540d8ec3c665c1f815179dd1c3b7aa06627d2feecc64
+    - name: rhhi-runtime
+      type: string
+      default: registry.access.redhat.com/hi/python@sha256:f703228646dfeae7a962d1ee720e5cb16031dcfee88eb064453dcefd09670e05
+    - name: acs-fail-on-policy
+      type: string
+      default: "false"
+    - name: acs-check-fail-on-policy
+      type: string
+      default: "false"
+      description: Act 4 can set true; Act 3b keeps soft like scan.
+  workspaces:
+    - name: source
+    - name: basic-auth
+    - name: dockerconfig
+    - name: acs-token
+    - name: cosign-key
+    - name: sonar-credentials
+  tasks:
+    - name: clone-source
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: URL
+          value: $(params.git-url)
+        - name: REVISION
+          value: $(params.git-revision)
+        - name: SSL_VERIFY
+          value: "false"
+      workspaces:
+        - name: output
+          workspace: source
+        - name: basic-auth
+          workspace: basic-auth
+
+    - name: test
+      runAfter: [clone-source]
+      taskRef:
+        name: pytest-pip-audit
+      params:
+        - name: CONTEXT
+          value: $(params.context)
+        - name: PIP_INDEX_URL
+          value: $(params.pip-index-url)
+        - name: PIP_TRUSTED_HOST
+          value: $(params.pip-trusted-host)
+        - name: LOCKFILE
+          value: $(params.lockfile)
+        - name: PYTHON_IMAGE
+          value: $(params.rhhi-builder)
+      workspaces:
+        - name: source
+          workspace: source
+
+    - name: sonar-scan
+      runAfter: [test]
+      taskRef:
+        name: sonar-scan-python
+      params:
+        - name: CONTEXT
+          value: $(params.context)
+      workspaces:
+        - name: source
+          workspace: source
+        - name: sonar-credentials
+          workspace: sonar-credentials
+
+    - name: build-and-push
+      runAfter: [sonar-scan]
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: IMAGE
+          value: $(params.image):$(params.image-tag)
+        - name: DOCKERFILE
+          value: $(params.dockerfile)
+        - name: CONTEXT
+          value: $(params.context)
+        - name: TLS_VERIFY
+          value: "false"
+        - name: STORAGE_DRIVER
+          value: vfs
+        - name: BUILD_ARGS
+          value:
+            - RHHI_BUILDER=$(params.rhhi-builder)
+            - RHHI_RUNTIME=$(params.rhhi-runtime)
+            - PIP_INDEX_URL=$(params.pip-index-url)
+            - PIP_TRUSTED_HOST=$(params.pip-trusted-host)
+      workspaces:
+        - name: source
+          workspace: source
+        - name: dockerconfig
+          workspace: dockerconfig
+
+    - name: sign-sbom
+      runAfter: [build-and-push]
+      taskRef:
+        name: cosign-sign-sbom
+      params:
+        - name: IMAGE
+          value: $(params.image)
+        - name: IMAGE_DIGEST
+          value: $(tasks.build-and-push.results.IMAGE_DIGEST)
+      workspaces:
+        - name: dockerconfig
+          workspace: dockerconfig
+        - name: cosign-key
+          workspace: cosign-key
+
+    - name: acs-scan
+      runAfter: [sign-sbom]
+      taskRef:
+        name: acs-image-scan
+      params:
+        - name: IMAGE
+          value: $(params.image)
+        - name: IMAGE_DIGEST
+          value: $(tasks.build-and-push.results.IMAGE_DIGEST)
+        - name: FAIL_ON_POLICY_VIOLATIONS
+          value: $(params.acs-fail-on-policy)
+      workspaces:
+        - name: acs-token
+          workspace: acs-token
+
+    - name: acs-check
+      runAfter: [acs-scan]
+      taskRef:
+        name: acs-image-check
+      params:
+        - name: IMAGE
+          value: $(params.image)@$(tasks.build-and-push.results.IMAGE_DIGEST)
+        - name: FAIL_ON_POLICY_VIOLATIONS
+          value: $(params.acs-check-fail-on-policy)
+      workspaces:
+        - name: acs-token
+          workspace: acs-token
+
+    - name: generate-sbom
+      runAfter: [acs-check]
+      taskRef:
+        name: generate-sbom-cdx
+      params:
+        - name: IMAGE
+          value: $(params.image)@$(tasks.build-and-push.results.IMAGE_DIGEST)
+        - name: SOURCE_NAME
+          value: fx-rate-service
+        - name: SOURCE_VERSION
+          value: $(params.image-tag)
+      workspaces:
+        - name: source
+          workspace: source
+        - name: dockerconfig
+          workspace: dockerconfig
+
+    - name: upload-sbom-to-tpa
+      runAfter: [generate-sbom]
+      taskRef:
+        name: upload-sbom-to-tpa
+      params:
+        - name: LABEL_COMPONENT
+          value: fx-rate-service
+        - name: LABEL_DEV
+          value: fxrate
+        - name: LABEL_STAGE
+          value: act3b
+      workspaces:
+        - name: source
+          workspace: source
+
+    - name: update-gitops
+      runAfter: [upload-sbom-to-tpa]
+      taskRef:
+        name: update-gitops-digest
+      params:
+        - name: IMAGE
+          value: $(params.image)
+        - name: IMAGE_DIGEST
+          value: $(tasks.build-and-push.results.IMAGE_DIGEST)
+        - name: GIT_URL
+          value: $(params.git-url)
+        - name: GIT_REVISION
+          value: $(params.git-revision)
+      workspaces:
+        - name: basic-auth
+          workspace: basic-auth
+
+    - name: trigger-validation
+      runAfter: [update-gitops]
+      taskRef:
+        name: trigger-validation
+      params:
+        - name: IMAGE
+          value: $(params.image)@$(tasks.build-and-push.results.IMAGE_DIGEST)
+        - name: GIT_REVISION
+          value: $(params.git-revision)
+        - name: IMAGE_TAG
+          value: $(params.image-tag)

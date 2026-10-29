@@ -1,0 +1,35 @@
+# V-08 / FR-011 — force package downloads through Nexus (constitution III).
+# Deny direct PyPI / TL hosts from the build namespace; allow everything else
+# (Quay, GitLab, RHHI registries, ACS, OSV, cluster DNS/API).
+#
+# Apply:
+#   oc apply -f cluster/network/egressfirewall-fxrate-ci.yaml
+# Verify (from a debug pod in fxrate-ci):
+#   curl -I https://pypi.org            # should fail / timeout
+#   curl -I https://nexus…/repository/pypi-proxy-pypi/simple/flask/  # should work
+apiVersion: k8s.ovn.org/v1
+kind: EgressFirewall
+metadata:
+  name: default
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  egress:
+    # First match wins — deny package origins that must go via Nexus.
+    - type: Deny
+      to:
+        dnsName: pypi.org
+    - type: Deny
+      to:
+        dnsName: files.pythonhosted.org
+    - type: Deny
+      to:
+        dnsName: packages.redhat.com
+    # Allow all other egress (Nexus, Quay, GitLab, registries, OSV, API, DNS…).
+    - type: Allow
+      to:
+        cidrSelector: 0.0.0.0/0
+    - type: Allow
+      to:
+        cidrSelector: ::/0

@@ -1,0 +1,73 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: sonar-scan-python
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    SonarQube scan for the Python fx-rate-service tree (parity with parasol
+    sonar-scan-secured, using sonar-scanner instead of Maven).
+  params:
+    - name: CONTEXT
+      default: fx-rate-service
+    - name: SONAR_HOST_URL
+      default: http://sonarqube.sonarqube.svc:9000
+    - name: SONAR_DASHBOARD_URL
+      default: https://sonarqube-sonarqube.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: SONAR_PROJECT_KEY
+      default: fx-rate-service
+    - name: SONAR_LOGIN
+      default: admin
+  results:
+    - name: SONAR_REPORT_URL
+    - name: SONAR_QUALITY_GATE
+  workspaces:
+    - name: source
+    - name: sonar-credentials
+      description: Secret with key password (SonarQube user password/token)
+  steps:
+    - name: sonar-scan
+      image: registry.access.redhat.com/ubi9/ubi:latest
+      workingDir: $(workspaces.source.path)/$(params.CONTEXT)
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        dnf -y install java-17-openjdk-headless unzip ca-certificates >/dev/null
+
+        SONAR_PASSWORD="$(tr -d '\n' < "$(workspaces.sonar-credentials.path)/password")"
+
+        VER=6.2.1.4610
+        curl -fsSL -o /tmp/sonar-scanner.zip \
+          "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${VER}-linux-x64.zip"
+        unzip -q /tmp/sonar-scanner.zip -d /tmp
+        export PATH="/tmp/sonar-scanner-${VER}-linux-x64/bin:${PATH}"
+
+        REPORT_URL="$(params.SONAR_DASHBOARD_URL)/dashboard?id=$(params.SONAR_PROJECT_KEY)"
+        printf '%s' "${REPORT_URL}" > "$(results.SONAR_REPORT_URL.path)"
+
+        cat > sonar-project.properties <<EOF
+        sonar.projectKey=$(params.SONAR_PROJECT_KEY)
+        sonar.projectName=fx-rate-service
+        sonar.sources=.
+        sonar.exclusions=**/tests/**,**/.venv/**,**/__pycache__/**
+        sonar.python.version=3.12
+        EOF
+
+        set +e
+        sonar-scanner \
+          -Dsonar.host.url="$(params.SONAR_HOST_URL)" \
+          -Dsonar.login="$(params.SONAR_LOGIN)" \
+          -Dsonar.password="${SONAR_PASSWORD}"
+        RC=$?
+        set -e
+
+        GATE="UNKNOWN"
+        if STATUS=$(curl -sk -u "$(params.SONAR_LOGIN):${SONAR_PASSWORD}" \
+          "$(params.SONAR_HOST_URL)/api/qualitygates/project_status?projectKey=$(params.SONAR_PROJECT_KEY)"); then
+          GATE=$(echo "${STATUS}" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("projectStatus",{}).get("status","UNKNOWN"))' 2>/dev/null || echo UNKNOWN)
+        fi
+        printf '%s' "${GATE}" > "$(results.SONAR_QUALITY_GATE.path)"
+        echo "Sonar report: ${REPORT_URL} gate=${GATE} scanner_rc=${RC}"
+        exit 0

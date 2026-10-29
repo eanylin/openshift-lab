@@ -1,0 +1,26 @@
+# One-shot TaskRun: sign + SPDX-attest an already-pushed image (e.g. Act 3b gap fill).
+# Prefer the pipeline's sign-sbom task for new builds.
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  generateName: cosign-sign-sbom-
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  serviceAccountName: pipeline
+  taskRef:
+    name: cosign-sign-sbom
+  params:
+    - name: IMAGE
+      value: quay.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/fx-rate-service
+    - name: IMAGE_DIGEST
+      # Latest Act 3b *dev* pin (overlays/dev). Prod may lag until promote MR merges.
+      value: sha256:6e23506088cc986c047f935e4b84f62880282e593c3aef3d5b9c8462d9a38ea6
+  workspaces:
+    - name: dockerconfig
+      secret:
+        secretName: quay-push-secret
+    - name: cosign-key
+      secret:
+        secretName: cosign-signing

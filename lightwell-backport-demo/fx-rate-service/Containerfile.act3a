@@ -1,0 +1,41 @@
+# Act 3a — RHHI multi-stage (builder → distroless runtime). Same T1 lock as Act 2 (AC-3a.2).
+# Digests from digests.env (constitution I). Build stage only elevates to USER 0 (V-02).
+
+ARG RHHI_BUILDER=registry.access.redhat.com/hi/python@sha256:95e23e434d7c047ab9bc540d8ec3c665c1f815179dd1c3b7aa06627d2feecc64
+ARG RHHI_RUNTIME=registry.access.redhat.com/hi/python@sha256:f703228646dfeae7a962d1ee720e5cb16031dcfee88eb064453dcefd09670e05
+
+FROM ${RHHI_BUILDER} AS build
+USER 0
+WORKDIR /opt/app
+
+COPY requirements.txt /tmp/requirements.txt
+ARG PIP_INDEX_URL=https://pypi.org/simple
+RUN python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip \
+    && /opt/venv/bin/pip install --index-url "${PIP_INDEX_URL}" \
+         --require-hashes --no-deps --only-binary=:all: \
+         -r /tmp/requirements.txt \
+    && rm -f /tmp/requirements.txt
+
+COPY fxrate/ /opt/app/fxrate/
+COPY demo_ui.html /opt/app/demo_ui.html
+# Any-UID friendly for restricted-v2 (V-06)
+RUN chown -R 0:0 /opt/app /opt/venv && chmod -R g=u /opt/app /opt/venv
+
+FROM ${RHHI_RUNTIME}
+COPY --from=build /opt/venv /opt/venv
+COPY --from=build /opt/app /opt/app
+WORKDIR /opt/app
+
+ENV PATH="/opt/venv/bin:${PATH}" \
+    PYTHONPATH="/opt/app" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+EXPOSE 8080
+LABEL \
+  demo.fxrate.act="3a" \
+  org.opencontainers.image.version="3.0.0-act3a"
+
+# No shell in runtime (AC-3a.3). Absolute entrypoint; OpenShift assigns UID.
+ENTRYPOINT ["/opt/venv/bin/gunicorn", "-b", "0.0.0.0:8080", "fxrate:app"]

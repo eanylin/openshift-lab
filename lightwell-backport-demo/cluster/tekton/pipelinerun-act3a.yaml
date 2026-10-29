@@ -1,0 +1,37 @@
+# Example PipelineRun — apply after Containerfile.act3a is on GitLab main
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: fx-rate-act3a-
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  serviceAccountName: pipeline
+  pipelineRef:
+    name: fx-rate-act3a
+  params:
+    - name: git-revision
+      value: main
+    - name: image-tag
+      value: 3.0.0-act3a
+  workspaces:
+    - name: source
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+    - name: basic-auth
+      secret:
+        secretName: gitlab-basic-auth
+    - name: dockerconfig
+      secret:
+        secretName: quay-push-secret
+    - name: acs-token
+      secret:
+        secretName: acs-api-token
+    - name: cosign-key
+      secret:
+        secretName: cosign-signing

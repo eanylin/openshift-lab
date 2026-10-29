@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: fxrate-dev
+resources:
+  - ../../base
+labels:
+  - pairs:
+      environment: dev
+      demo.fxrate.act: "3b"
+    includeSelectors: false
+commonAnnotations:
+  demo.fxrate.image: 3.0.0-act3b
+images:
+  - name: quay.apps.<YOUR_CLUSTER_DOMAIN>/fxrate/fx-rate-service
+    digest: sha256:c51cc45d49e452ce9024a075e7e421de676940d6fd7bb15fde791f815ea4626a

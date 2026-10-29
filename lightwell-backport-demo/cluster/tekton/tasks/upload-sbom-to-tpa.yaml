@@ -1,0 +1,79 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: upload-sbom-to-tpa
+  namespace: fxrate-ci
+  labels:
+    app.kubernetes.io/part-of: fx-rate-demo
+spec:
+  description: >
+    Upload a CycloneDX SBOM to Trusted Profile Analyzer via OIDC client credentials
+    (parity with parasol upload-sbom-to-tpa-secured).
+  params:
+    - name: TPA_URL
+      default: https://server-trusted-profile-analyzer.apps.<YOUR_CLUSTER_DOMAIN>
+    - name: ISSUER_URL
+      default: https://sso.apps.<YOUR_CLUSTER_DOMAIN>/realms/sso
+    - name: TPA_SECRET_NAME
+      default: tpa-cli-secret
+      description: Secret with keys client_id and client_secret in fxrate-ci
+    - name: SBOM_PATH
+      default: sbom/sbom-cyclonedx.json
+    - name: LABEL_STAGE
+      default: preprod
+    - name: LABEL_DEV
+      default: fxrate
+    - name: LABEL_COMPONENT
+      default: fx-rate-service
+  results:
+    - name: LINK_TO_SBOM
+  workspaces:
+    - name: source
+  steps:
+    - name: upload-sbom
+      image: registry.access.redhat.com/ubi9-minimal:latest
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: $(params.TPA_SECRET_NAME)
+              key: client_id
+        - name: CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: $(params.TPA_SECRET_NAME)
+              key: client_secret
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        microdnf install -y jq ca-certificates --nodocs >/dev/null && microdnf clean all
+
+        SBOM_FILE="$(params.SBOM_PATH)"
+        [[ -f "${SBOM_FILE}" ]] || { echo "SBOM missing: ${SBOM_FILE}" >&2; exit 1; }
+
+        echo "Obtaining OIDC access token from $(params.ISSUER_URL)..."
+        TOKEN=$(curl -sk -X POST "$(params.ISSUER_URL)/protocol/openid-connect/token" \
+          -H "Content-Type: application/x-www-form-urlencoded" \
+          -d "grant_type=client_credentials" \
+          -d "client_id=${CLIENT_ID}" \
+          -d "client_secret=${CLIENT_SECRET}" \
+          | jq -r '.access_token // empty')
+        [[ -n "${TOKEN}" ]] || { echo "Failed to obtain access token" >&2; exit 1; }
+
+        LABELS="labels.stage=$(params.LABEL_STAGE)&labels.dev=$(params.LABEL_DEV)&labels.component=$(params.LABEL_COMPONENT)"
+        echo "Uploading SBOM to $(params.TPA_URL)/api/v3/sbom"
+        HTTP_CODE=$(curl -sk -X POST \
+          "$(params.TPA_URL)/api/v3/sbom?${LABELS}" \
+          -H "Authorization: Bearer ${TOKEN}" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary "@${SBOM_FILE}" \
+          -o /tmp/tpa-response.json \
+          -w "%{http_code}")
+        echo "TPA HTTP ${HTTP_CODE}"
+        cat /tmp/tpa-response.json; echo
+        [[ "${HTTP_CODE}" -ge 200 && "${HTTP_CODE}" -lt 300 ]] || exit 1
+        SBOM_ID=$(jq -r '.id // empty' /tmp/tpa-response.json)
+        LINK="$(params.TPA_URL)/sboms/${SBOM_ID}"
+        echo "SBOM link: ${LINK}"
+        printf '%s' "${LINK}" > "$(results.LINK_TO_SBOM.path)"

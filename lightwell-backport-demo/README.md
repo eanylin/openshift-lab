@@ -66,11 +66,3 @@ CI updates **dev** only. Validate opens a **GitLab MR** for **prod**. Merge → 
 RESET_CONFIRM=yes make reset           # Act 0 on dev, empty prod
 RESET_CONFIRM=yes make restore-act3b   # Act 3b pins on both
 ```
-
-## Honest gaps (GitHub / greenfield)
-
-- Lab hosts use OpenShift `apps.<domain>` conventions by default; rewrite with `cluster/scripts/set-lab-hosts.sh` (see BOOTSTRAP).
-- ACS cosign **deploy** enforce not on yet ([EGRESS-AND-SIGNATURES.md](cluster/docs/EGRESS-AND-SIGNATURES.md)).
-- Quay images must be rebuilt on a new lab (`make *-image`).
-
-**Next optional:** Act 5 (RHHI digest bump). Confused about the talk? → [DEMO-RUNBOOK](cluster/docs/DEMO-RUNBOOK.md). Confused about *why*? → [ARCHITECTURE-DECISIONS](cluster/docs/ARCHITECTURE-DECISIONS.md).
